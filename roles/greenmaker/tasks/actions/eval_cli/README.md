@@ -58,7 +58,7 @@ workflow:
             commands:
               - show module
             pattern: "{{ module_id | default() }}.+hw-faulty"
-          simulation:
+          test:
             input: validate_lc_failure_after_reseat_sim
       on_true:
         - echo: 
@@ -71,8 +71,8 @@ workflow:
               message: |
                 Line card failure no longer present after physical reseat.  Exiting.
 tests:
-  - simulation:
-      metadata:
+  validation:
+    - metadata:
         name: "failure_fixed_by_physical_reseat"
         description: |
           Test execution of workflow when no failure is present and resolved after physical reseat of LC
@@ -85,7 +85,7 @@ tests:
           expected_result:
             return: false           
 library:
-  simulation_vars:
+  test_vars:
     - show_module_no_failure: |
         Chassis Type: C9407R
 

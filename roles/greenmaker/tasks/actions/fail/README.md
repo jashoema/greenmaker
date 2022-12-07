@@ -20,7 +20,7 @@ Remediation Action
 |------|------|-------------|-----------|
 | N/A |  |  |  |
 
-### Supported Simulation Input Parameters
+### Supported Test Input Parameters
 
 | Name | Type | Description | Mandatory |
 |------|------|-------------|-----------|

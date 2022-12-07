@@ -20,7 +20,7 @@ Remediation Action
 |------|------|-------------|-----------|
 | N/A | | |
 
-### Supported Simulation Input Parameters
+### Supported Test Input Parameters
 
 | Name | Type | Description | Mandatory |
 |------|------|-------------|-----------|
@@ -51,7 +51,7 @@ workflow:
             commands:
               - show module
             pattern: "{{ module_id | default() }}.+hw-faulty"
-          simulation:
+          test:
             input: validate_lc_failure_after_reseat_sim
       on_true:
         - echo: 

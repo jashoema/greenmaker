@@ -22,7 +22,7 @@ Validation Action
 | source | String | Source data extracted from regex pattern match that we wish to assign to a variable for future use in Greenmaker.  Must use the value of `pattern_search[<index_number>]` for extracting data from the regex pattern match, where index_number is the index of the capture group from our regex that we want to use, starting with `pattern_search[0]` for the first capture group. | No |
 | target | String | Name of the variable to which extracted regex content should be assigned. | No |
 
-### Supported Simulation Input Parameters
+### Supported Test Input Parameters
 
 | Name | Type | Description | Mandatory |
 |------|------|-------------|-----------|
