@@ -53,7 +53,6 @@ N/A
 - iosxr
 - nxos
 - eos
-- aruba
 
 ### Sample Usage
 

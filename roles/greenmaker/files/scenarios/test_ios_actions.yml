@@ -1,4 +1,4 @@
-# Usage: ansible-playbook test_greenmaker.yml -l svs_e360_cat9400 -i inventory/hosts -e '{ "target_scenarios":["test_ios_actions"] }'
+# Usage: ansible-playbook test_greenmaker.yml -l <hostname> -i inventory/hosts -e '{ "target_scenarios":["test_ios_actions"] }'
 ---
 metadata:
   id: "100001"

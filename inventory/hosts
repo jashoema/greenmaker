@@ -37,8 +37,3 @@ all:
       ansible_network_os: eos
       ansible_user: admin
       ansible_password: C1sco123
-    generic_aruba_device:
-      ansible_host: 11.225.250.190
-      ansible_network_os: aruba
-      ansible_user: admin
-      ansible_password: C1sco123
