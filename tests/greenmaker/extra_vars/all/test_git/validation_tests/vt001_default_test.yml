@@ -5,7 +5,7 @@ test_type: validation
 test_name: default_test
 git_scenario_username: "username"
 git_scenario_password: "password"
-git_scenario_url: "https://wwwin-github.cisco.com/cx-ndovt/greenmaker.git"
+git_scenario_url: "https://www.github.com/repo.git"
 git_relative_scenario_path: "/roles/greenmaker/files/scenarios"
 git_scenario_path: "roles/greenmaker/files/scenarios"
 scenario_source: git
