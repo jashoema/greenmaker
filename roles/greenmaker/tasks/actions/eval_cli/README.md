@@ -81,7 +81,7 @@ tests:
           alert_vars:
             syslog: "R0/0: iomd: PCIe access failed, HW faulty on Slot 2 Subslot 0. PCIe access failed, HW faulty, shutting down this slot."        
         validate_lc_failure_after_reseat_sim:
-          cli_eval_data: "{{ show_module_no_failure | default('') }}"
+          cli_eval_data: "{{ show_module_no_failure }}"
           expected_result:
             return: false           
 library:

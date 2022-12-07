@@ -50,7 +50,7 @@ workflow:
           args:
             commands:
               - show module
-            pattern: "{{ module_id | default('') }}.+hw-faulty"
+            pattern: "{{ module_id }}.+hw-faulty"
           simulation:
             input: validate_lc_failure_after_reboot_sim
       on_true:
@@ -62,7 +62,7 @@ workflow:
         - config_cli:
             args:
               commands:
-                - "hw-module slot {{ module_id | default('') }} shutdown"
+                - "hw-module slot {{ module_id }} shutdown"
         - manual_action:
             args:
               name: "Physical reseat of Cat9K line card for module"

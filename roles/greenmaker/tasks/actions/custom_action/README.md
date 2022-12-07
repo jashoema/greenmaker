@@ -57,7 +57,7 @@ workflow:
         - echo: 
             args:
               message: |
-                eval_cli found the desired pattern. Failure code: {{ failure_code | default('') }}
+                eval_cli found the desired pattern. Failure code: {{ failure_code }}
         - custom_action:
             args:
               type: ansible_role

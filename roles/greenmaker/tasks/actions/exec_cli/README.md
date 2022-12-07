@@ -55,19 +55,19 @@ workflow:
           args:
             commands:
               - show module
-            pattern: "{{ module_id | default('') }}.+hw-faulty"
+            pattern: "{{ module_id }}.+hw-faulty"
           simulation:
             input: validate_lc_failure_sim
       on_true:
         - echo: 
             args:
               message: |
-                Possible line card failure present in module {{ module_id | default('') }}.
+                Possible line card failure present in module {{ module_id }}.
                 Attempting power cycle of line card to resolve.
         - exec_cli:
             args:
               commands:
-                - "hw-module subslot {{ module_id | default('') }}/0 oir power-cycle force"
+                - "hw-module subslot {{ module_id }}/0 oir power-cycle force"
         - wait:
             args:
               duration: 1

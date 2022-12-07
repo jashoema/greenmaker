@@ -47,7 +47,7 @@ N/A
           - eval_var:
               args:
                 var_name: alert_vars.syslog
-                pattern: "neighbor ({{ string_ipv4_addr_regex | default('') }}) Down"
+                pattern: "neighbor ({{ string_ipv4_addr_regex }}) Down"
               output:
                 - source: pattern_search[0]
                   target: neighbor_addr
@@ -61,7 +61,7 @@ N/A
           - eval_var:
               args:
                 var_name: alert_vars.syslog
-                pattern: "neighbor ({{ string_ipv6_addr_regex | default('') }}) Down"
+                pattern: "neighbor ({{ string_ipv6_addr_regex }}) Down"
               output:
                 - source: pattern_search[0]
                   target: neighbor_addr

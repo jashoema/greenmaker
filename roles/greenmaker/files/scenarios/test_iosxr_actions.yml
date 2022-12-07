@@ -49,7 +49,7 @@ workflow:
         - config_cli:
             args:
               commands:
-                - "hostname {{ hostname | default('') }}"
+                - "hostname {{ hostname }}"
         - open_case:
             args:
               title: "Testing open_case action."

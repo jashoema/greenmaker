@@ -51,7 +51,7 @@ workflow:
         - config_cli:
             args:
               commands:
-                - "no hw-module slot {{ module_id | default('') }} shutdown"
+                - "no hw-module slot {{ module_id }} shutdown"
         - wait:
             args:
               duration: 300
