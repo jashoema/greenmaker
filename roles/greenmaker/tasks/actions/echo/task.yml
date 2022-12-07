@@ -1,0 +1,29 @@
+---
+- name: Initialize action_log for capturing debug data for action in a JSON format
+  set_fact:
+    action_log: {}
+    action_name: "{{ (action.keys() | list)[0] }}"
+
+- debug:
+    msg: "Executing {{ action_name }}"
+    verbosity: 1
+    
+- debug:
+    msg: "{{ action['echo']['args']['message'] }}"
+    verbosity: 1
+
+- name: log echo content to file
+  lineinfile:
+    line: "! ECHO: {{ action['echo']['args']['message'] }}"
+    insertafter: EOF
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+  check_mode: no
+  delegate_to: localhost
+
+- name: Generate workflow_log_action for current action
+  set_fact:
+    workflow_log_action: "{{ { action_name: ( action[action_name] | combine( { 'action_log': action_log | default({}) } ) ) } }}"
+
+- name: Append workflow_log_action_list with workflow_log_action for current action
+  set_fact:
+    workflow_log_action_list: "{{ workflow_log_action_list + [ workflow_log_action ] }}"

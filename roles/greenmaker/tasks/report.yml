@@ -1,0 +1,106 @@
+---
+- name: Generate result_vars
+  set_fact: 
+    result_vars: "{{ result_vars | default({}) | combine ( { item: lookup('vars', item, default='') } ) }} "
+  loop: "{{ result_vars_list | unique }}"
+
+- name: Craft the result fact for publishing to results log file
+  set_fact:
+    result_log:
+      status: "{{ result_status | default('undefined') }}"
+      exit_step: "{{ result_exit_step | default('undefined') }}"
+      exit_reason: "{{ result_exit_reason | default('undefined') }}"
+      start_time: "{{ result_start_time  | default('undefined') }}"
+      end_time: "{{ lookup('pipe','date +%Y-%m-%dT%H:%M:%SZ') }}"
+      vars: "{{ result_vars | default({}) }}"
+
+- name: Generate result log file for {{ inventory_hostname }}
+  copy:
+    content: "{{ result_log | to_nice_json }}"
+    dest: "{{ gm_log_path }}/{{ gm_log_result_name }}"
+    force: yes
+  check_mode: no
+
+- name: Generate workflow log file for {{ inventory_hostname }}
+  copy:
+    content: "{{ workflow_log | default('undefined') | to_nice_json }}"
+    dest: "{{ gm_log_path }}/{{ gm_log_workflow_name }}"
+    force: yes
+  check_mode: no
+
+- name: When gm_log_remote is true, zip up generated log files and case attachments, and copy zip file to remote file server
+  block:
+
+  - name: Zip results in preparation for remote copy
+    archive:
+      path: 
+        - "{{ gm_log_path }}/{{ gm_log_result_name }}"
+        - "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+        - "{{ gm_log_path }}/{{ gm_log_workflow_name }}"
+        - "{{ gm_log_path }}/{{ inventory_hostname }}_attach.zip"
+      dest: "{{ gm_log_path }}/{{ gm_log_remote_file_name }}"
+      format: zip
+    check_mode: no
+
+  - name: When gm_log_remote_proto is 'scp', perform SCP upload of generated log files and case attachments to remote file server
+    expect:
+      command: "scp -o StrictHostKeyChecking=no -r {{ gm_log_path }}/{{ gm_log_remote_file_name }} {{ gm_log_remote_user }}@{{ gm_log_remote_ipv4 }}:{{ gm_log_remote_path | default('') }}/"
+      responses:
+        password: "{{ gm_log_remote_pw }}"
+      timeout: 60
+    no_log: true
+    ignore_errors: true
+    check_mode: no
+    register: gm_log_remote_result
+    when: gm_log_remote_proto == "scp"
+
+  - name: When gm_log_remote_proto is 'azure_blob_storage', send PUT request via REST API to upload file to Azure Blob Storage container
+    uri:
+      url: "https://{{ gm_log_remote_host }}/{{ gm_log_remote_container }}/{{ gm_log_remote_path | default('') }}{{ gm_log_remote_file_name }}?{{ gm_log_remote_pw }}"
+      method: PUT
+      src: "{{ gm_log_path }}/{{ gm_log_remote_file_name }}"
+      return_content: yes
+      status_code: 201
+      headers:
+        x-ms-blob-type: BlockBlob
+        Content-Type: application/octet-stream
+    no_log: true
+    ignore_errors: true
+    check_mode: no
+    register: gm_log_remote_result
+    when: gm_log_remote_proto == "azure_blob_storage"
+
+  - name: Log debug information for Azure blob storage remote file copy when failure occurs
+    debug: 
+      verbosity: 0
+      msg: |
+        content:
+        {{ gm_log_remote_result['content'] | default('Unknown') }}
+        msg: 
+        {{ gm_log_remote_result['msg'] | default('Unknown') }}
+        status:
+        {{ gm_log_remote_result['status'] | default('Unknown') }}
+    when: gm_log_remote_proto == "azure_blob_storage" and gm_log_remote_result.failed == true
+    
+  when: gm_log_remote == true 
+
+- name: If upload fails or remote logging is not enabled, output gm_logs to the Ansible task logs for retrieval after execution
+  block:
+  
+  - name: "Output log files:"
+    debug: 
+      verbosity: 0
+      msg: "{{ item }}:\n\n{{ lookup('file', gm_log_path + '/' + item ) | to_nice_json }}"
+    loop:
+      - "{{ gm_log_workflow_name }}"
+      - "{{ gm_log_cli_name }}"
+      - "{{ gm_log_result_name }}"
+
+  when: ( gm_log_remote_result.failed | default(false) == true ) or gm_log_remote == false
+
+- name: When gm_log_cleanup is true, delete generated log files
+  file:
+    state: absent
+    path: "{{ gm_log_path }}"
+  check_mode: no
+  when: gm_log_cleanup == true

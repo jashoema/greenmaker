@@ -1,0 +1,22 @@
+---
+- name: Set current time
+  set_fact:
+    current_time: "{{ lookup('pipe','date +%Y-%m-%d%H:%M:%S') }}"
+
+- name: Convert start step time into a datetime format
+  set_fact:
+    start_step_time_dt: "{{ current_time[:10]+' '+current_time[10:] }}"
+
+  when: action_time_type == 'start'
+
+- name: set finish time
+  block:
+  - name: Convert finish step time into a datetime format
+    set_fact:
+      finish_step_time_dt: "{{ current_time[:10]+' '+current_time[10:] }}"
+
+  - name: Diff time in sec
+    set_fact:
+      diff_step_time_sec: "{{ ((finish_step_time_dt | to_datetime) - (start_step_time_dt | to_datetime)).total_seconds() | int }}" 
+
+  when: action_time_type == 'finish'

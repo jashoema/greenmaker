@@ -1,0 +1,68 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_call"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "sample call scenario"
+  description: |
+    This scenario demonstrates the usage of the "call" action. This scenario starts with the executing an "echo" action to print to provide a message about the subsequent call 
+    action. Then  the call action is then invoked. The call action directly pulls in a library function into the workflow and executes this actions in this library prior to resuming the defined workflow.
+  product_family:
+    - "All"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+  
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "Call Action Example"
+        description: |
+          Echo "Sample Call Action", to the Ansible execution logs
+      on_true:
+        - echo:
+            args:
+              message: |
+                Preparing to invoke call action, the action will be invoke a library action which will execute prior to the remaining actions in this step ar executed.
+        - call:
+            args:
+              label: "call_test_001"            
+        - echo: 
+            args:
+              message: |
+                This action will execute after the call action has completed preparing to finish workflow.
+        - exit:
+            args:
+              reason: Call action sample workflow completed with a successfully execution.
+    
+library: 
+  call_test_001:
+    - echo:
+        args:
+          message: "entering call test 001 libary"
+    - echo:
+        args:
+          message: "Exiting call test 001 library function"
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of call action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+

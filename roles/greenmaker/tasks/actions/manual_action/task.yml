@@ -1,0 +1,31 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }}"
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ (action.keys() | list)[0] }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: add custom fields
+  set_fact:
+    custom_fields: "{{ action['manual_action']['custom_fields'] | default({})}}" 
+
+- name: Set manual_action_name and future_resume_step (using future_resume_step, because setting resume_step now will break workflow due to upstream conditionals)
+  set_fact:
+    manual_action_name: "{{ action['manual_action']['args']['name'] }}"
+    future_resume_step: "{{ action['manual_action']['args']['resume_step'] | default( scenario['workflow'][step_index + 1]['step']['metadata']['name'] ) }}"
+
+- name: Log results in preparation for workflow exit and set exit to true
+  set_fact:
+    result_status: manual_action
+    result_exit_step: 
+      index: "{{ step_index }}"
+      metadata: "{{ current_step['step']['metadata'] }}"
+    result_exit_reason: "manual_action> {{ manual_action_name }}"
+    result_vars: "{{ result_vars | default({}) | combine({ 'manual_action_name': manual_action_name, 'resume_step': future_resume_step, 'custom_fields': custom_fields }) }}"
+    exit: true

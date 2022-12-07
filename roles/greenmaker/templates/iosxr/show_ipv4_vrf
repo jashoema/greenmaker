@@ -1,0 +1,10 @@
+Value STATUS (Up|Down|Shutdown)
+Value PROTOCOL (Up|Down|Shutdown)
+Value VRF_NAME (\S+)
+Value INTERFACE (\S+)
+Value IP_ADDRESS (\d{0,2}\.\d{0,2}\.\d{0,2}\.\d{0,3}|\S+)
+
+Start
+  ^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s*\\n
+  ^${INTERFACE}\s+${IP_ADDRESS}\s+${STATUS}\s+${PROTOCOL}\s+${VRF_NAME}
+  #^. -> Error

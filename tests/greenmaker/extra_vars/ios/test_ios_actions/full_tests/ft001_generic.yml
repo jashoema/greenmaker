@@ -1,0 +1,4 @@
+---
+scenario_name: "test_ios_actions"
+test_mode: false
+alert_vars: {}

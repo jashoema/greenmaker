@@ -1,0 +1,69 @@
+---
+- debug:
+    msg: "Executing {{ action_name }} for {{ ansible_network_os }}"
+    verbosity: 1
+
+- name: Initialize vars
+  set_fact:
+    cli_logs: {}
+
+- name: Execute commands for Arista EOS device
+  block:
+
+  - name: Execute commands for Arista EOS device 
+    cli_command: 
+      command: "{{ item }}" 
+    vars: 
+      ansible_command_timeout: "{{ action['exec_cli']['args']['timeout'] | default(60) | int }}" 
+    loop: "{{ action['exec_cli']['args']['commands'] }}" 
+    ignore_errors: "{{ action['exec_cli']['args']['ignore_errors'] | default(false) }}" 
+    register: cli_exec_data_raw 
+  
+  - name: Append cli logs to same file
+    lineinfile:
+      dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+      line: | 
+          >> {{ action['exec_cli']['args']['commands'][index] }}
+          {{ current_std_output }}
+      insertafter: EOF
+    check_mode: no
+    loop: "{{ cli_exec_data_raw.results | map(attribute='stdout') | list }}"
+    loop_control:
+        loop_var: current_std_output
+        index_var: index
+    delegate_to: localhost
+
+  - set_fact:
+      cli_logs: "{{ dict( action['exec_cli']['args']['commands'] | zip( cli_exec_data_raw.results | map(attribute='stdout') | list ) ) }}"  
+
+  when: test_mode == false or (test_mode == true and test_type == 'remediation')
+  
+- name: When in Validation Test Mode mode, generate debug output and log non-execution of commands to file
+  block:
+
+  - name: Validation Test Mode mode debug output
+    debug:
+      msg: |
+        The following commands were not executed due to use of Validation Test Mode:
+        {{ action['exec_cli']['args']['commands'] }}
+      verbosity: 1
+
+  - name: Append cli logs to same file
+    lineinfile:
+      dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+      line: | 
+          >> {{ command }}
+          Execution skipped due to Validation Test Mode
+      insertafter: EOF
+    check_mode: no
+    loop: "{{ action['exec_cli']['args']['commands'] }}"
+    loop_control:
+        loop_var: command
+        index_var: index
+    delegate_to: localhost
+
+  when: test_mode == true and test_type == 'validation'
+
+- name: Capture action logs for JSON workflow logs
+  set_fact:
+    action_log: "{{ action_log | combine({ 'cli_logs': cli_logs | default({}) }) }}"

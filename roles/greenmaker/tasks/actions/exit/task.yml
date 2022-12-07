@@ -1,0 +1,51 @@
+---
+- name: Initialize action_log for capturing debug data for action in a JSON format
+  set_fact:
+    action_log: {}
+    action_name: "{{ (action.keys() | list)[0] }}"
+
+- debug:
+    msg: "Executing {{ action_name }} action"
+    verbosity: 1
+
+- debug:
+    msg: "EXIT REASON: {{ action['exit']['args']['reason'] }}"
+    verbosity: 1
+
+- name: log exit reason to cli log file
+  lineinfile:
+    line: "! ACTION: exit\n! REASON: {{ action['exit']['args']['reason'] }}"
+    insertafter: EOF
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+  check_mode: no
+  delegate_to: localhost
+
+- name: add custom fields
+  set_fact:
+    custom_fields: "{{ action['exit']['custom_fields'] | default({})}}" 
+
+- name: Generate workflow_log_action for current action
+  set_fact:
+    workflow_log_action: "{{ { action_name: ( action[action_name] | combine( { 'action_log': action_log | default({}) } ) ) } }}"
+
+- name: Append workflow_log_action_list with workflow_log_action for current action
+  set_fact:
+    workflow_log_action_list: "{{ workflow_log_action_list + [ workflow_log_action ] }}"
+
+- name: Append workflow_log_action_list to workflow_log_step
+  set_fact:
+    workflow_log_step: "{{ workflow_log_step | combine( { remediation_selection: workflow_log_action_list } ) }}"
+
+- name: Append workflow_log_step to workflow_log
+  set_fact:
+    workflow_log: "{{ workflow_log + [ { 'step': workflow_log_step } ] }}"
+
+- name: Log results in preparation for workflow exit and set exit to true
+  set_fact:
+    result_status: exit
+    result_exit_step: 
+      index: "{{ step_index }}"
+      metadata: "{{ current_step['step']['metadata'] }}"
+    result_exit_reason: "exit> {{ action['exit']['args']['reason'] }}"
+    result_vars: "{{ result_vars | default({}) | combine({ 'custom_fields': custom_fields }) }}"
+    exit: true

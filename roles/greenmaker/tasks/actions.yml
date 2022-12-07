@@ -1,0 +1,17 @@
+---
+- name: Initialize workflow_log_action_list for capturing debug data for action in a JSON format
+  set_fact:
+    workflow_log_action_list: []
+
+- name: Loop through list of validation or remediation actions from workflow step
+  include_tasks: 
+    file: "actions/{{ (action.keys() | list)[0] }}/task.yml"
+  loop: "{{ actions }}"
+  loop_control:
+    loop_var: action
+  when: exit | default(false) == false
+
+- name: Execute check scenario timeout
+  include_tasks: 
+    file: check_scenario_timeout.yml
+  when: (scenario_timeout | int ) != 0

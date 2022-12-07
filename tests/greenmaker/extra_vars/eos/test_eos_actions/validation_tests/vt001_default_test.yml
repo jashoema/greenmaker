@@ -1,0 +1,5 @@
+---
+scenario_name: "test_eos_actions"
+test_mode: true
+test_type: validation
+test_name: default_test

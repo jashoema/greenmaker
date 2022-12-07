@@ -1,0 +1,11 @@
+# Special test to validate reachability precheck feature
+# Usage: ansible-playbook greenmaker.yml -l "target_host" -i inventory/hosts -e "@./tests/greenmaker/extra_vars/reachability_precheck_test.yml"
+---
+alert_vars: {}
+gm_log_cleanup: false
+gm_log_remote: false
+scenario_name: hello_world
+reachability_test: true
+reachability_test_timeout: 15
+reachability_test_retries: 3
+ansible_host: "1.1.1.1"

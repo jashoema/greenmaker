@@ -1,0 +1,17 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }}"
+    verbosity: 1
+
+- debug:
+    msg: "{{ (action.keys() | list)[0] }} for {{ ansible_network_os }} is not yet implemented.  Skipping action."
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ (action.keys() | list)[0] }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+

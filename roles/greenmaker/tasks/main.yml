@@ -1,0 +1,38 @@
+---
+
+- name: Execute Greenmaker role
+  block:
+
+  - name: Setup log file structure
+    include_tasks: 
+      file: init_logs.yml
+
+  - name: Execute prechecks
+    include_tasks: 
+      file: prechecks.yml
+
+  - name: Initialize facts and import scenario details
+    include_tasks:
+      file: init_facts.yml
+
+  - name: Iterate through steps in scenario workflow
+    include_tasks:
+      file: workflow_tasks.yml
+    loop: "{{ range(0, scenario['workflow']|length)|list }}"
+    loop_control:
+      loop_var: step_index
+      extended: yes
+    when: exit | default(false) == false
+
+  rescue:
+
+  - name: Execute error_handler
+    include_tasks: error_handler.yml
+    vars:
+      failure_type: "Workflow Execution Failure"
+
+  always:
+
+  - name: Report results prior to completing execution
+    include_tasks:
+      file: report.yml

@@ -1,0 +1,83 @@
+---
+- name: Generate error condition if more than one host is targeted by Greenmaker
+  assert:
+    that:
+      - "ansible_play_hosts_all | length == 1"
+    fail_msg: "PRECHECK_FAILURE: Multiple hosts targeted by this play. Greenmaker only supports targeting of a single host.  ansible_play_hosts_all = {{ ansible_play_hosts_all }}"
+  when: allow_multiple_hosts == false
+
+- name: Error checking for mandatory input variables
+  assert:
+    that:
+      - "scenario_name is defined"
+      - "alert_vars is defined"
+    fail_msg: "PRECHECK_FAILURE: Required extra_vars are undefined.  See Greenmaker README.md for more information about required input vars."
+
+- name: Error checking for test_name and test_type
+  assert:
+    that:
+      - "test_name is defined"
+      - "test_type in supported_test_type_list"
+    fail_msg: "PRECHECK_FAILURE: test_name or test_type not properly defined for test_mode"
+  when: test_mode == true
+
+- name:  Prechecks for gm_log_remote true
+  block:
+
+  - name: Make sure that gm_log_remote_proto is a supported protocol
+    assert:
+      that:
+        - gm_log_remote_proto in supported_gm_log_remote_proto_list
+      fail_msg: "PRECHECK_FAILURE: Current setting for gm_log_remote_proto is unsupported.  gm_log_remote_proto = {{ gm_log_remote_proto | default('') }}. Supported values: {{ supported_gm_log_remote_proto_list }}"
+
+  - name: Make sure that username, pw, and server address are set when remote logging is enabled with SCP
+    assert:
+      that:
+        - gm_log_remote_user is defined
+        - gm_log_remote_pw is defined
+        - gm_log_remote_host is defined
+      fail_msg: "PRECHECK_FAILURE: Required extra_vars are missing for current setting of gm_log_remote_proto='scp'."
+    when: gm_log_remote_proto == 'scp'
+
+  - name: Make sure that all required extra_vars are set when remote logging is enabled with Azure Blob Storage
+    assert:
+      that:
+        - gm_log_remote_pw is defined
+        - gm_log_remote_host is defined
+        - gm_log_remote_container is defined
+      fail_msg: "PRECHECK_FAILURE: Required extra_vars are missing for current setting of gm_log_remote_proto='azure_blob_storage'."
+    when: gm_log_remote_proto == 'azure_blob_storage'
+
+  when: gm_log_remote == true
+
+- name: Check that required git vars are defined when scenario_source == git
+  assert:
+    that:
+      - "git_scenario_username is defined"
+      - "git_scenario_password is defined"
+      - "git_scenario_url is defined"
+    fail_msg: "PRECHECK_FAILURE: Required extra_vars are missing for current setting of scenario_source='git'."
+  when: scenario_source == 'git'
+
+- name: Check device reachability before scenario execution
+  block:
+
+  - name: Check device reachability
+    ignore_errors: true
+    wait_for:
+      host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}'
+      port: "{{ (ansible_port|default(22) )}}"
+      delay: 0
+      timeout: "{{ reachability_test_timeout }}" 
+      state: started
+    retries: "{{ reachability_test_retries }}" 
+    register: reachability_result
+    until: reachability_result['failed'] == false 
+
+  - name: Check that device is reachable result 
+    assert:
+      that:
+        - "{{ reachability_result['failed'] }} == false"
+      fail_msg: "PRECHECK_FAILURE: Device {{ inventory_hostname }} is not reachable."
+
+  when: test_mode == false and reachability_test == true 

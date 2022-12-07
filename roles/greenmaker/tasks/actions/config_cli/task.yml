@@ -1,0 +1,39 @@
+---
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "start"
+
+- name: Initialize action_log for capturing debug data for action in a JSON format
+  set_fact:
+    action_log: {}
+    action_name: "{{ (action.keys() | list)[0] }}"
+
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }}"
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ (action.keys() | list)[0] }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: Execute OS-specific implementation for config_cli
+  include_tasks:
+    file: "{{ ansible_network_os }}/task.yml"
+    
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "finish"
+
+- name: Generate workflow_log_action for current action
+  set_fact:
+    workflow_log_action: "{{ { action_name: ( action[action_name] | combine( { 'action_log': action_log | default({}) | combine({'duration': diff_step_time_sec | int}) } ) ) } }}"
+
+- name: Append workflow_log_action_list with workflow_log_action for current action
+  set_fact:
+    workflow_log_action_list: "{{ workflow_log_action_list + [ workflow_log_action ] }}"

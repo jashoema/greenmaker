@@ -1,0 +1,94 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_and"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  name: "sample and scenario"
+  version: "1.0.0"
+  description: |
+    This scenario demonstrates the usage of the logical "and" action by executing multiple validation actions under the "and" action
+    and rendering true or false results.
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "and_true_true_evaluation"
+        description: |
+          Demonstration of positive matching on the 'and' action by rendering 'true' results for both embedded eval_var actions.
+          In both cases, the string that we are searching for (pattern) is present in the variable contents (and_test_string).
+          true AND true = true, so this results in the on_true actions being executed.
+      validation:
+        and:
+          - eval_var:
+              args:
+                var_name: and_test_string
+                pattern: "AND condition matching"
+          - eval_var:
+              args:
+                var_name: and_test_string
+                pattern: "this string contains"
+      on_true:
+        - echo: 
+            args:
+              message: |
+               "Both eval_var actions rendered a true result as expected."
+      on_false:
+        - echo: 
+            args:
+              message: |
+               "This action should never be executed because the both eval_var actions should render a true result."
+  - step:
+      metadata:
+        name: "and_true_false_evaluation"
+        description: |
+          Demonstration of negative matching on the 'and' action by rendering a false result for one of the two embedded eval_var actions.
+          In the first eval_var action, the string that we are searching for (pattern) is present in the variable contents (and_test_string), and renders a true result.
+          In the second eval_var action, the string that we are searching for is NOT present in the variable contents, and renders a false result.
+          true AND false = false, so this results in the on_false actions being executed.
+      validation:
+        and:
+          - eval_var:
+              args:
+                var_name: and_test_string
+                pattern: "AND condition matching"
+          - eval_var:
+              args:
+                var_name: and_test_string
+                pattern: "this string does not match and will render a false result"
+      on_true:
+        - echo: 
+            args:
+              message: |
+               "This action should never be executed because one of the eval_var actions should render a false result."
+      on_false:
+        - echo: 
+            args:
+              message: |
+               "One of the two eval_var actions rendered a false result as expected."
+  - step:
+      metadata:
+        name: "exit"
+        description: "Exit workflow"
+      on_true:
+        - exit:
+            args:
+              reason: |
+                Workflow execution complete.  Exiting.
+
+tests:
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of 'and' action.
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+  
+library:
+  execution_vars:
+    - and_test_string: "this string contains the AND condition matching string"  

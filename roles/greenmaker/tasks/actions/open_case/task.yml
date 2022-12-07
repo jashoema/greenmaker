@@ -1,0 +1,70 @@
+---
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "start"
+
+- name: Initialize action_log for capturing debug data for action in a JSON format
+  set_fact:
+    action_log: {}
+    action_name: "{{ (action.keys() | list)[0] }}"
+
+- debug:
+    msg: "Executing {{ action_name }}"
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ action_name }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: add custom fields
+  set_fact:
+    custom_fields: "{{ action['open_case']['custom_fields'] | default({})}}" 
+
+- name: Assign facts based upon open_case args
+  set_fact:
+    open_case_title: "{{ action['open_case']['args']['title'] }}"
+    open_case_description: "{{ action['open_case']['args']['description'] }}"
+    open_case_destinations: "{{  action['open_case']['args']['destinations'] | default(['internal']) }}"
+    open_case_severity: "{{ action['open_case']['args']['severity'] | default('3') }}"
+    open_case_attach_commands: "{{ action['open_case']['args']['attach_commands'] | default([]) }}"
+    open_case_timeout: "{{ action['open_case']['args']['timeout'] | default(120) }}"
+
+- name: Execute OS-specific implementation for open_case
+  include_tasks:
+    file: "{{ ansible_network_os }}/task.yml"
+
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "finish"
+
+- name: Generate workflow_log_action for current action
+  set_fact:
+    workflow_log_action: "{{ { action_name: ( action[action_name] | combine( { 'action_log': action_log | default({}) | combine({'duration': diff_step_time_sec | int}) } ) ) } }}"
+
+- name: Append workflow_log_action_list with workflow_log_action for current action
+  set_fact:
+    workflow_log_action_list: "{{ workflow_log_action_list + [ workflow_log_action ] }}"
+
+- name: Append workflow_log_action_list to workflow_log_step
+  set_fact:
+    workflow_log_step: "{{ workflow_log_step | combine( { remediation_selection: workflow_log_action_list } ) }}"
+
+- name: Append workflow_log_step to workflow_log
+  set_fact:
+    workflow_log: "{{ workflow_log + [ { 'step': workflow_log_step } ] }}"
+
+- name: Log results in preparation for workflow exit and set exit to true
+  set_fact:
+    result_status: open_case
+    result_exit_step: 
+      index: "{{ step_index }}"
+      metadata: "{{ current_step['step']['metadata'] }}"
+    result_exit_reason: "open_case> {{ open_case_title }}"
+    result_vars: "{{ result_vars | default({}) | combine({ 'open_case_title': open_case_title, 'open_case_description': open_case_description, 'open_case_destinations': open_case_destinations, 'open_case_severity': open_case_severity, 'open_case_attach_commands': open_case_attach_commands, 'custom_fields': custom_fields }) }}"
+    exit: true 

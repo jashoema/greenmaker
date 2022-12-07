@@ -1,0 +1,64 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":[sample_eval_var"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  name: "sample eval_var scenario"
+  version: "1.0.0"
+  description: |
+    This scenario demonstrates the usage of the "eval_var" action. 
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "Simple eval_var Sample Scenario"
+        description: |
+          Demonstration of sample scenario with a postive matching on the eval_var action
+      validation:
+        eval_var:
+          args:
+            var_name: eval_var_test_string
+            pattern: "Reason: ([\\s\\S]+) ([\\s\\S]+) ([\\s\\S]+)"  
+          output:
+          - source: pattern_search[0]
+            target: failure_code
+          - source: pattern_search[1]
+            target: failure_code1
+          - source: pattern_search[2]
+            target: failure_code2
+          settings:
+            test:
+              output: eval_var_scenario
+      on_true:
+        - echo: 
+            args:
+              message: |
+               "{{ failure_code }} {{ failure_code1 }} {{ failure_code2 }}"
+        - exit:
+            args:
+              reason: Exit action invoked as sample eval_var action worklfow has completed.
+      on_false:
+        - echo: 
+            args:
+              message: |
+               "Exiting workflow as conditon was not met in the scenario."
+        - exit:
+            args:
+              reason: Exit action invoked as conditon was not met in the scenario.
+tests:
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of EVAL_VAR action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+
+library:
+  execution_vars:
+    - eval_var_test_string: "Reason: Module restarted yes"
+

@@ -1,0 +1,46 @@
+---
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "start"
+
+- name: Initialize action_log for capturing debug data for action in a JSON format
+  set_fact:
+    action_log: {}
+    action_name: "{{ (action.keys() | list)[0] }}"
+    log_vars: {}
+
+- debug:
+    msg: "Executing {{ action_name }}"
+    verbosity: 1
+
+- name: Capture type and name of custom_action
+  set_fact:
+    custom_action_type: "{{ action['custom_action']['args']['type'] }}"
+    custom_action_name: "{{ action['custom_action']['args']['name'] }}"
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: |
+      ! ACTION: {{ action_name }} | type: {{ custom_action_type }} | name: {{ custom_action_name }}
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: Execute tasks for custom_action_type
+  include_tasks:
+    file: "types/{{ custom_action_type }}.yml"
+
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "finish"
+
+- name: Generate workflow_log_action for current action
+  set_fact:
+    workflow_log_action: "{{ { action_name: ( action[action_name] | combine( { 'action_log': action_log | default({}) | combine({'duration': diff_step_time_sec | int}) } ) ) } }}"
+
+- name: Append workflow_log_action_list with workflow_log_action for current action
+  set_fact:
+    workflow_log_action_list: "{{ workflow_log_action_list + [ workflow_log_action ] }}"

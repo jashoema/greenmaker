@@ -1,0 +1,4 @@
+---
+scenario_name: "test_eos_actions"
+test_mode: false
+alert_vars: {}

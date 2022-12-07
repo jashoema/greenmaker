@@ -1,0 +1,4 @@
+---
+scenario_name: "test_nxos_actions"
+test_mode: false
+alert_vars: {}

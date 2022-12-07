@@ -1,0 +1,61 @@
+---
+# By default, Greenmaker can only be executed against a single host
+allow_multiple_hosts: false
+# By default, test mode is not enabled for workflows.
+test_mode: false
+# By default, when test mode is true, execute only the tests of type "validation"
+test_type: validation
+# By default, do not attempt to create vendor support case.
+open_case_mode: passive
+# By default, log results to ~/.ansible/tmp
+gm_log_path_base: "{{ lookup('env','HOME') }}/.ansible/tmp"
+# By default, log structured results in 'json' format
+gm_log_format: json
+# By default, automatically delete local log files for greenmaker scenario executions
+gm_log_cleanup: true
+# By default, do not write logs to a remote server
+gm_log_remote: false
+# By default, use SCP for remote log transfers
+gm_log_remote_proto: scp
+# Set default value for "exit" to false until an "exit" action is encountered
+exit: false
+# Initialize list of vars that will be logged to result output. Dynamically generated vars
+# will automatically be added to this list
+result_vars_list:
+  - test_mode
+  - test_type
+  - test_name
+  - open_case_mode
+  - scenario_name
+  - alert_vars
+  - gm_log_cli_name
+  - gm_log_workflow_name
+  - gm_log_result_name
+  - gm_log_remote
+  - gm_log_remote_proto
+  - gm_log_remote_host
+  - gm_log_remote_container
+  - gm_log_remote_path
+  - gm_log_cleanup
+  - reachability_test_timeout
+  - reachability_test_retries
+  - reachability_test
+  - scenario_timeout
+
+# 'scenario_source' defines the source from which scenario files should be retrieved.
+# Supported values include "local" for local file system or "git" for remote git repo.
+scenario_source: "local"
+# Scenario file path when 'scenario_source' is "local"
+scenario_path: "{{ role_path }}/files/scenarios/"
+# Source repo scenario branch
+git_scenario_branch: master
+# Ansible git module clone directory
+git_scenario_clone_path: "{{ lookup('env','HOME') }}/.ansible/tmp/scenario_repository/"
+# Controls whether the pre connectivity test is performed before scenario execution
+reachability_test: false
+# Configurable precheck for connectivity time out 
+reachability_test_timeout: 60
+# Configurable precheck for connectivity test retries 
+reachability_test_retries: 3
+# Sets maximum execution time in minutes for a scenario, after which time the scenario is halted and a failure is reported (default: 0, means no timeout)
+scenario_timeout: 0

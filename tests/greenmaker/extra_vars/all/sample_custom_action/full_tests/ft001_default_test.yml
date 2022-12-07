@@ -1,0 +1,4 @@
+---
+scenario_name: "sample_custom_action"
+test_mode: false
+alert_vars: {}

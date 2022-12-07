@@ -1,0 +1,26 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }}"
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ (action.keys() | list)[0] }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: Set wait time in seconds
+  set_fact:
+    wait_time_sec: "{{ action['wait']['args']['duration'] }}"
+  
+- name: Override wait time to be 1 second when in Validation Test Mode
+  set_fact:
+    wait_time_sec: "1"
+  when: test_mode == true and test_type == 'validation'
+
+- name: Execute "wait" for specified amount of time in seconds
+  pause: 
+    seconds: "{{ wait_time_sec }}"
+

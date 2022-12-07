@@ -1,0 +1,40 @@
+---
+
+- name: Process input sources and targets
+  block: 
+
+  - name: Process input target vars
+    set_fact:         
+      "{{ current_action_input['target'] }}": "{{ hostvars[inventory_hostname] | json_query(current_action_input['source']) }}"
+    loop: "{{ action['custom_action']['input'] }}"
+    loop_control:
+      loop_var: current_action_input
+      index_var: index
+
+  when: "'input' in action['custom_action']"
+
+- name: Execute Ansible Role named {{ custom_action_name }}
+  include_role: 
+    name: "{{ custom_action_name }}"
+
+- name: Process output sources and targets
+  block: 
+
+  - name: Process output target vars
+    set_fact:         
+      "{{ current_action_output['target'] }}": "{{ hostvars[inventory_hostname] | json_query(current_action_output['source']) }}"
+      log_vars: "{{ log_vars | combine({current_action_output['target']: hostvars[inventory_hostname] | json_query(current_action_output['source']) }) }}"
+    loop: "{{ action['custom_action']['output'] }}"
+    loop_control:
+      loop_var: current_action_output
+      index_var: index
+
+  - name: Append output vars to result_vars_list
+    set_fact:
+      result_vars_list: "{{ result_vars_list + ((log_vars | default({})).keys() | list) }}"
+
+  when: "'output' in action['custom_action']"
+
+- name: Capture action logs for JSON workflow logs
+  set_fact:
+    action_log: "{{ action_log | combine({ 'output_vars': log_vars | default({}) }) }}"

@@ -1,0 +1,76 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }}"
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ (action.keys() | list)[0] }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: Set validation_results_cache_index for tracking nested logical validations
+  set_fact:
+    validation_results_cache_index: "{{ validation_results_cache_index | default(0) | int + 1 }}"
+
+- name: Cache validation_results for situations where nested logical validations being performed
+  set_fact:
+    validation_results_cache: "{{ validation_results_cache | default({}) | combine({ validation_results_cache_index:[] }) }}"
+
+- name: Assign validation based upon contents of _and_ action
+  set_fact:
+    validation: "{{ action['and'] }}"
+
+- name: Cache the workflow_log_action_list data prior to validation action execution
+  set_fact:
+    workflow_log_action_list_cache: "{{ workflow_log_action_list }}"
+
+- name: Execute validation actions embedded within _and_ action
+  include_tasks: 
+    file: validation.yml
+
+- name: Append the validation workflow log data to the previously cached data and assign it to workflow_log_action_list
+  set_fact:
+    workflow_log_action_list: "{{ workflow_log_action_list_cache + [ {'and': workflow_log_validation } ] }}"
+
+- name: Return "true" when combined AND logic is true
+  set_fact:
+    result:
+      return: true
+      data: {}
+  when: false not in validation_results_cache[validation_results_cache_index]
+
+- name: Return "false" when combined AND logic is false
+  set_fact:
+    result:
+      return: false
+      data: {}
+  when: false in validation_results_cache[validation_results_cache_index]
+
+- name: Reset cache for current validation results index
+  set_fact: 
+    validation_results_cache: "{{ validation_results_cache | combine( { validation_results_cache_index : [] } ) }}"
+
+- name: Reduce validation_results_cache_index by 1
+  set_fact:
+    validation_results_cache_index: "{{ validation_results_cache_index | int - 1 }}"
+
+- name: Append "and" result to validation_results_list for nested logic
+  block:
+
+  - name: Capture updated validation results list for current boolean evaluation
+    set_fact:
+      current_validation_results: "{{ validation_results_cache[validation_results_cache_index] + [ result['return'] ] }}"
+
+  - name: Update validation_results_cache with latest validation results
+    set_fact:
+      validation_results_cache: "{{ validation_results_cache | combine( { validation_results_cache_index : current_validation_results } ) }}"
+
+  when: validation_results_cache_index | int > 0
+
+- name: Reset validation_results_list when nested logic execution is complete
+  set_fact:
+    validation_results_cache: {}
+  when: validation_results_cache_index == "0"

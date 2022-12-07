@@ -1,0 +1,5 @@
+---
+scenario_name: "test_custom_fields_manual_action"
+test_mode: true
+test_type: validation
+test_name: manual_action_custom_fields
