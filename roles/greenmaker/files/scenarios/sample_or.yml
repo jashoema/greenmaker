@@ -1,0 +1,57 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_or"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  name: "sample_or"
+  version: "1.0.0"
+  description: |
+    This scenario demonstrates the usage of the "or" action. 
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+   - step:
+      metadata:
+        name: "or_true_false_evaluation"
+        description: |
+          Demonstration of using the 'or' action to render a true result when evaluating two embedded eval_var actions.
+          In the first eval_var action, the string that we are searching for (pattern) is present in the variable contents (or_test_string), and renders a true result.
+          In the second eval_var action, the string that we are searching for is NOT present in the variable contents, and renders a false result.
+          true OR false = true, so this results in the on_true actions being executed.
+      validation:
+        or:
+          - eval_var:
+              args:
+                var_name: or_test_string
+                pattern: " or condition matching "
+   
+          - eval_var:
+              args:
+                var_name: or_test_string
+                pattern: " or condition not matching "  
+      on_true:
+        - exit:
+            args:
+              reason: "Logical OR action rendered true as expected.  Exiting."
+
+      on_false:
+        - exit:
+            args:
+              reason: "Logical OR action rendered false, which is not expected.  Exiting."
+
+tests:
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of 'or' action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+
+library:
+  execution_vars:
+    - or_test_string: "this string contains the or condition matching string"

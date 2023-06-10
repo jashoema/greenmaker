@@ -1,0 +1,38 @@
+---
+- name: Set log path and create timestamp for log file names
+  set_fact:
+    gm_log_path: "{{ gm_log_path_base + '/gm_' + ( ORCHESTRATOR_JOB_ID | default(scenario_name) ) + '/' }}"
+    gm_log_timestamp: "{{ lookup('pipe','date +%Y%m%d%H%M%S') }}"
+    result_start_time: "{{ lookup('pipe','date +%Y-%m-%dT%H:%M:%SZ') }}"
+
+- name: convert result_start_time into a datetime format
+  set_fact:
+    result_start_time_dt: "{{ result_start_time[:10]+' '+result_start_time[11:-1] }}"
+
+- name: Create log file names
+  set_fact:
+    gm_log_cli_name: "{{ inventory_hostname }}_cli_{{ gm_log_timestamp }}.log"
+    gm_log_workflow_name: "{{ inventory_hostname }}_workflow_{{ gm_log_timestamp }}.log"
+    gm_log_result_name: "{{ inventory_hostname }}_result_{{ gm_log_timestamp }}.log"
+
+- name: When doing remote logging, set name of log results zip file when name has not already been set via extra_var
+  set_fact:
+    gm_log_remote_file_name: "{{ 'gm_' + ( ORCHESTRATOR_JOB_ID | default(scenario_name + '_' + gm_log_timestamp) ) + '.zip' }}"
+  when: gm_log_remote == true and ( ( gm_log_remote_file_name | default('') ) | length == 0 )
+
+- name: Create gm_log_path folder structure
+  file:
+    path: "{{ gm_log_path }}"
+    state: directory
+  check_mode: no
+
+- name: Create cli log file for {{ inventory_hostname }}
+  copy:
+    content: ""
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    force: yes
+  check_mode: no
+
+- name: Initialize workflow_log for capturing debug data for each workflow step in a JSON format
+  set_fact:
+    workflow_log: []

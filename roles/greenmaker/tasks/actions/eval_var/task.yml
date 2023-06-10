@@ -1,0 +1,105 @@
+---
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "start"
+
+- name: Initialize action_log for capturing debug data for action in a JSON format
+  set_fact:
+    action_log: {}
+    action_name: "{{ (action.keys() | list)[0] }}"
+    log_vars: {}
+
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }}"
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ (action.keys() | list)[0] }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: Capture name of variable that is to be evaluated
+  set_fact:
+    var_name: "{{ action['eval_var']['args']['var_name'] }}"
+  
+- name: Capture the value of the var_name variable 
+  set_fact:
+    var_contents: "{{ '{{ ' + var_name + ' }}' }}"
+
+- name: Extract regex pattern from var_contents
+  set_fact:
+    pattern_search: "{{ var_contents | regex_findall(action['eval_var']['args']['pattern']) }}"
+
+- name: Flatten the pattern search list  
+  set_fact:
+    pattern_search: "{{ pattern_search[0] }}"
+  when: ( pattern_search[0]  | type_debug == "list" )
+
+- name: Set result to false when pattern is not found
+  set_fact:
+    result:
+      return: false
+      data: "No results found"
+  when: pattern_search | length == 0
+
+- name: Process output sources and targets
+  block: 
+      
+  - name: Process output target vars
+    set_fact:
+      "{{ current_action_output['target'] }}": "{{ hostvars[inventory_hostname] | json_query(current_action_output['source']) }}"
+      log_vars: "{{ log_vars | combine({current_action_output['target']: hostvars[inventory_hostname] | json_query(current_action_output['source']) }) }}"
+    loop: "{{ action['eval_var']['output'] }}"
+    loop_control:
+      loop_var: current_action_output
+      index_var: index
+
+  when: "'output' in action['eval_var'] and pattern_search | length > 0"
+
+- name: Pattern is found in variable
+  block:
+  
+  - name: When pattern is found, set result.return to true and capture regex pattern list as result.data
+    set_fact:
+      result:
+        return: true
+        data:
+          pattern_search: "{{ pattern_search }}"
+          vars: "{{ log_vars | default({}) }}"
+      result_vars_list: "{{ result_vars_list + ((log_vars | default({})).keys() | list) }}"
+
+  when: pattern_search | length > 0
+
+- name: Capture validation results in validation results list for use in logical _and/or_ evaluation
+  block:
+
+  - name: Capture updated validation results list for current boolean evaluation
+    set_fact:
+      current_validation_results: "{{ validation_results_cache[validation_results_cache_index] + [ result['return'] ] }}"
+
+  - name: Update validation_results_cache with latest validation results
+    set_fact:
+      validation_results_cache: "{{ validation_results_cache | combine( { validation_results_cache_index : current_validation_results } ) }}"
+
+  when: validation_results_cache | default({}) | length > 0
+
+- name: Capture action logs for JSON workflow logs
+  set_fact:
+    action_log: "{{ action_log | combine({ 'result': result['return'], 'input_vars': { var_name: var_contents }, 'output_vars': log_vars | default({}) }) }}"
+
+- name: Check action time
+  include_tasks: check_per_action_time.yml
+  vars:
+    action_time_type: "finish"
+
+- name: Generate workflow_log_action for current action
+  set_fact:
+    workflow_log_action: "{{ { action_name: ( action[action_name] | combine( { 'action_log': action_log | default({}) | combine({'duration': diff_step_time_sec | int}) } ) ) } }}"
+
+- name: Append workflow_log_action_list with workflow_log_action for current action
+  set_fact:
+    workflow_log_action_list: "{{ workflow_log_action_list + [ workflow_log_action ] }}"

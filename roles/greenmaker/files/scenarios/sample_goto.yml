@@ -1,0 +1,75 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_goto"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "sample goto scenario"
+  description: |
+    This scenario demonstrates the usage of the "GOTO" action. This scenario starts with the executing an "echo" action to print to provide a message about the subsequent goto 
+    action. Then  the goto action is then invoked, passing a value of the next step to goto in the target argument. The remaining actions in this step are not completed as the workflow
+    will "goto" the targeted step and complete the action.
+  product_family:
+    - "All"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+  
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "goto test"
+        description: |
+          Echo "Sample GOTO Action", to the Ansible execution logs
+      on_true:
+        - echo:
+            args:
+              message: |
+                Preparing to invoke goto action, all subsequent actions in this step will be skipped and 
+                no further messages from this step will not appear in the logs.
+        - goto:
+            args:
+              target: "goto_test_001"      
+        - echo: 
+            args:
+              message: |
+                This action shouldn't execute and this message should not appear in the logs as 
+                GOTO Step should have invoked the target step.
+        - exit:
+            args:
+              reason: Error, goto execution failed.
+  - step:
+      metadata:
+        name: "goto_test_001"
+        description: "Test set for goto scenario to execute"
+      on_true:
+        - echo:
+            args:
+              message: |
+                goto action action executed successfully. Test completed. Preparing for exit.
+        - exit:
+            args:
+              reason: Exiting as Goto action test completed.
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of goto action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+
+library: {}

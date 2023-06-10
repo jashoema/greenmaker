@@ -1,0 +1,54 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["hello_world"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "hello_world"
+  description: |
+    This scenario functions as a basic test to confirm that Greenmaker is operational.  
+    It simply executes the "echo" action to generate a message that says "Hello, World!"
+    in the Ansible execution logs.
+  product_family:
+    - "All"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "echo_hello_world"
+        description: |
+          Echo "Hello, World!" to the Ansible execution logs
+      on_true:
+        - echo: 
+            args:
+              message: |
+                Hello, World!
+        - exit:
+            args:
+              reason: Execution complete.
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of echo action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+  
+library: {}

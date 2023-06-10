@@ -1,0 +1,115 @@
+---
+
+- name: Include variables from extra_vars_file
+  include_vars:
+    file: "{{ extra_vars_file }}"
+    name: extra_vars
+
+- name: Map included vars to facts and initialize certain facts as needed
+  set_fact:
+    alert_vars: "{{ extra_vars.alert_vars | default({}) }}"
+    gm_log_remote_file_name: ""
+    result_vars: {}
+    resume_step: ""
+    ignore_resume_step: false
+    exit: false
+
+- name: Assign extra_vars based upon contents of extra_vars_file
+  no_log: true
+  set_fact:
+    "{{ item.key }}": "{{ item.value }}"
+  loop: "{{ extra_vars | dict2items }}"
+
+- name: Generate test start banner
+  set_fact:
+    test_start_banner: |
+      .
+      ==========================================================================
+      EXECUTING TEST {{ test_number + 1 }} OF {{ extra_vars_files_matching | count }} FOR {{ scenario_name }}
+
+      extra-vars imported from {{ extra_vars_file }}:
+
+      {{ extra_vars | to_nice_yaml }}
+      ==========================================================================
+      .
+
+- name: Display information about current test
+  pause:
+    prompt: "{{ test_start_banner }}"
+    seconds: "{{ banner_delay_sec }}"
+
+- block:
+
+  - name: Execute Greenmaker role with populated extra-vars
+    include_role:
+      name: greenmaker
+
+  - name: Generate failure when test results show failure
+    fail:
+      msg: Test failure
+    when: result_log['status'] == 'failed' or result_log['status'] == 'undefined'
+
+  - name: Generate test end banner for Pass
+    set_fact:
+      test_end_banner: |
+        .
+        ==========================================================================
+        TEST {{ test_number + 1 }} RESULT: Pass
+
+        Result Log File:    {{ gm_log_path }}/{{ gm_log_result_name }}
+        CLI Log File:       {{ gm_log_path }}/{{ gm_log_cli_name }}
+        Workflow Log File:  {{ gm_log_path }}/{{ gm_log_workflow_name }}
+        ==========================================================================
+        .
+
+  - name: Capture test pass
+    set_fact:
+      test_pass: true
+      test_pass_count: "{{ test_pass_count | default(0) | int + 1 }}"
+
+  rescue:
+
+  - name: Generate test end banner for Fail
+    set_fact:
+      test_end_banner: |
+        .
+        .
+        .
+        ==========================================================================
+        TEST {{ test_number + 1 }} RESULT: Fail
+
+        Result Log File:    {{ gm_log_path | default("not-available") }}/{{ gm_log_result_name | default("not-available") }}
+        CLI Log File:       {{ gm_log_path | default("not-available") }}/{{ gm_log_cli_name | default("not-available") }}
+        Workflow Log File:  {{ gm_log_path | default("not-available") }}/{{ gm_log_workflow_name | default("not-available") }}
+        ==========================================================================
+        .
+        .
+        .
+
+  - name: Capture test failure
+    set_fact:
+      test_pass: false
+      test_fail_count: "{{ test_fail_count | default (0) | int + 1 }}"
+
+  always:
+
+  - name: Display results for current test
+    pause:
+      prompt: "{{ test_end_banner }}"
+      seconds: "{{ banner_delay_sec }}"
+
+  - name: Capture test case results for log file
+    set_fact:
+      tc_results:
+        test_number: "{{ test_number + 1 }}"
+        scenario_name: "{{ scenario_name }}"
+        extra_vars_file: "{{ extra_vars_file }}"
+        extra_vars: "{{ extra_vars }}"
+        result_log_file: "{{ gm_log_path | default('not-available') }}/{{ gm_log_result_name | default('not-available') }}"
+        cli_log_file: "{{ gm_log_path | default('not-available') }}/{{ gm_log_cli_name | default('not-available') }}"
+        workflow_log_file: "{{ gm_log_path | default('not-available') }}/{{ gm_log_workflow_name | default('not-available') }}"
+        test_pass: "{{ test_pass }}"
+
+  - name: Append tc_results to test_results
+    set_fact:
+      test_results: "{{ test_results | default([]) + [tc_results] }}"

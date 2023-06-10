@@ -1,0 +1,29 @@
+# Usage: 
+# docker build -t greenmaker:latest .
+# docker run -itd --name greenmaker -v "${PWD}:/remote/" --env-file <env-file> greenmaker:latest 
+
+FROM cytopia/ansible:2.9-tools
+
+ARG ANSIBLE_VER=2.9.10
+
+LABEL description="Greenmaker Ansible-based network auto-remediation framework"
+LABEL maintainer="Jason Shoemaker <jashoema@cisco.com>"
+LABEL version="1.4.0"
+
+ENV PLAYBOOK=greenmaker.yml
+ENV TARGET_HOST=test_host
+ENV INVENTORY_FILE=inventory/hosts
+ENV EXTRA_VARS_FILE=/remote/extra_vars.yml
+ENV ANSIBLE_CONFIG=/workspaces/greenmaker/ansible.cfg
+
+USER ansible
+WORKDIR /home/ansible
+COPY ./requirements.txt .
+
+RUN echo "**** install Ansible and dependencies ****" && \
+  pip3 install --no-cache-dir -r requirements.txt
+
+# CMD ansible-playbook $PLAYBOOK -vvv -l $TARGET_HOST -i $INVENTORY_FILE -e @$EXTRA_VARS_FILE
+
+
+# docker run -it --name greenmaker -v "${PWD}:/remote/" greenmaker:latest bash

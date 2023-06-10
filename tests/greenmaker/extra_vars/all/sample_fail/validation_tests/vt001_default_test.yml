@@ -1,0 +1,5 @@
+---
+scenario_name: "sample_fail"
+test_mode: true
+test_type: validation
+test_name: default_test

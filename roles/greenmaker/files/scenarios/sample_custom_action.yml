@@ -1,0 +1,76 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_custom_action"], "use_full_test":true }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "sample_custom_action"
+  description: |
+    This scenario demonstrates usage of the custom_action action to trigger an ansible role and consume the resulting facts.
+  product_family:
+    - "All"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "custom_action"
+        description: |
+          Execute custom_action
+      on_true:
+        - echo: 
+            args:
+              message: |
+                Executing Ansible role called "custom_action_test" via custom_action
+        - custom_action:
+            args:
+              type: ansible_role
+              name: custom_action_test
+            output:
+              - source: fact1
+                target: var1
+              - source: fact2
+                target: var2
+              - source: fact3
+                target: var3
+              - source: role_result
+                target: custom_action_result
+  - step: 
+      metadata:
+        name: "evaluate_custom_action_result"
+        description: |
+          Evaluate custom_action result
+      validation:
+        eval_var:
+          args:
+            var_name: custom_action_result
+            pattern: "success"
+      on_true:
+        - exit:
+            args:
+              reason: Success
+      on_false:
+        - exit:
+            args:
+              reason: Failure
+      
+          
+
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: {}
+# Validation and Remediation tests are not supported for custom_action
+
+library: {}

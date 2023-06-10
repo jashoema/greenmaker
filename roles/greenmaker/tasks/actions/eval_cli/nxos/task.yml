@@ -1,0 +1,174 @@
+---
+- debug:
+    msg: "Executing {{ action_name }} for {{ ansible_network_os }}"
+    verbosity: 1
+
+- name: Initialize vars
+  set_fact:
+    log_vars: {}
+    cli_logs: {}
+
+- name: Execute eval_cli data capture when test mode not enabled
+  block:
+
+    - name: Execute commands for NX-OS device
+      nxos_command:
+        commands: "{{ action['eval_cli']['args']['commands'] }}"
+      vars:
+        ansible_command_timeout: "{{ action['eval_cli']['args']['timeout'] | default(60) | int }}"
+      register: cli_eval_data_raw
+
+    - set_fact:
+        cli_eval_data: "{{ cli_eval_data_raw['stdout'] | join('\n') }}"
+
+    - name: Append command output to CLI log file
+      lineinfile:
+        dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+        line: |
+            >> {{ action['eval_cli']['args']['commands'][index] }}
+            {{ current_std_output }}
+        insertafter: EOF
+      check_mode: no
+      loop: "{{ cli_eval_data_raw['stdout'] }}"
+      loop_control:
+          loop_var: current_std_output
+          index_var: index
+      delegate_to: localhost
+
+    - set_fact:
+        cli_logs: "{{ dict( action['eval_cli']['args']['commands'] | zip( cli_eval_data_raw['stdout'] ) ) }}"
+
+  when: test_mode == false
+
+- name: Execute eval_cli data capture with simulated data for Validation Test Mode
+  block:
+
+    - set_fact:
+        test_input: "{{ action['eval_cli']['settings']['test']['input'] | default('') }}"
+
+    - set_fact:
+        cli_eval_data: "{{ test_params['input'][test_input]['cli_eval_data'] | default('') }}"
+
+    - name: Append command output to CLI log file
+      lineinfile:
+        dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+        line: |
+            >> {{ action['eval_cli']['args']['commands'] }}
+            {{ cli_eval_data }}
+        insertafter: EOF
+      check_mode: no
+      delegate_to: localhost
+      
+    - set_fact:
+        cli_logs: "{{ { action['eval_cli']['args']['commands'] | join('; '): cli_eval_data } }}"
+
+  when: test_mode == true and test_type == 'validation'
+
+- name: Execute regex pattern evaluation when not in Remediation Test Mode
+  set_fact:
+    pattern_search: "{{ cli_eval_data | regex_findall(action['eval_cli']['args']['pattern'], multiline=True) }}"
+  when: test_mode == false or (test_mode == true and test_type == 'validation')
+
+- name: Flatten the pattern search list  
+  set_fact:
+    pattern_search: "{{ pattern_search[0] }}"
+  when: ( pattern_search[0]  | type_debug == "list" )
+
+- name: Execute textfsm
+  block:
+
+  - name: Generate output in JSON format 
+    ansible.utils.cli_parse: 
+      text: "{{ cli_eval_data }}" 
+      parser: 
+        name: ansible.utils.textfsm 
+        template_path: "{{ role_path }}/templates/{{ ansible_network_os }}/{{ action['eval_cli']['args']['parser_file'] }}" 
+      set_fact: parser_output
+
+  when: ( pattern_search | length > 0 ) and ( action['eval_cli']['args']['parser'] | default('') == 'textfsm' )
+
+- name: Set output vars when pattern is found and not in Remediation Test Mode
+  block:
+
+  - name: Process output target vars
+    set_fact:
+      "{{ current_action_output['target'] }}": "{{ hostvars[inventory_hostname] | json_query(current_action_output['source']) }}"
+      log_vars: "{{ log_vars | combine({current_action_output['target']: hostvars[inventory_hostname] | json_query(current_action_output['source']) }) }}"
+    loop: "{{ action['eval_cli']['output'] }}"
+    loop_control:
+      loop_var: current_action_output
+      index_var: index
+
+  when: "('output' in action['eval_cli'] and pattern_search | length > 0) and not (test_mode == true and test_type == 'remediation')"
+
+- name: Capture validation result when not in Remediation Test Mode
+  block:
+
+  - name: Set result.return to false when pattern is not found
+    set_fact:
+      result:
+        return: false
+        data: "No results found"
+    when: pattern_search | length == 0
+
+  - name: When pattern is found, set result.return to true and capture regex pattern list as result.data
+    set_fact:
+      result:
+        return: true
+        data:
+          pattern_search: "{{ pattern_search }}"
+          vars: "{{ log_vars | default({}) }}"
+      result_vars_list: "{{ result_vars_list + ((log_vars | default({})).keys() | list) }}"
+    when: pattern_search | length > 0
+
+  when: not (test_mode == true and test_type == 'remediation')
+
+- name: Override output vars and validation result when in Remediation Test Mode
+  block:
+
+  - name: Set test_input and test_output
+    set_fact:
+      test_input: "{{ action['eval_cli']['settings']['test']['input'] | default('') }}"
+      test_output: "{{ action['eval_cli']['settings']['test']['output'] | default('') }}"
+
+  - name: Process output target vars
+    set_fact:
+      "{{ current_action_output['target'] }}": "{{ test_params['output'][test_output][current_action_output['target']] | default('') }}"
+      log_vars: "{{ log_vars | combine({current_action_output['target']: test_params['output'][test_output][current_action_output['target']] | default('')}) }}"
+    loop: "{{ action['eval_cli']['output'] | default([]) }}"
+    loop_control:
+      loop_var: current_action_output
+
+  - name: Set result.return to value defined by Remediation Test parameters
+    set_fact:
+      result:
+        return: "{{ test_params['input'][test_input]['return'] | default(true) }}"
+        data:
+          pattern_search: ""
+          vars: "{{ log_vars | default({}) }}"
+      result_vars_list: "{{ result_vars_list + ((log_vars | default({})).keys() | list) }}"
+
+  when: test_mode == true and test_type == 'remediation'
+
+- name: Capture validation results in validation results list for use in logical _and/or_ evaluation
+  block:
+
+  - name: Capture updated validation results list for current boolean evaluation
+    set_fact:
+      current_validation_results: "{{ validation_results_cache[validation_results_cache_index] + [ result['return'] ] }}"
+
+  - name: Update validation_results_cache with latest validation results
+    set_fact:
+      validation_results_cache: "{{ validation_results_cache | combine( { validation_results_cache_index : current_validation_results } ) }}"
+
+  when: validation_results_cache | default({}) | length > 0
+
+- name: Capture action logs for JSON workflow logs
+  set_fact:
+    action_log: "{{ action_log | combine({ 'result': result['return'], 'cli_logs': cli_logs | default({}), 'output_vars': log_vars | default({}) }) }}"
+
+- name: When in Validation Test Mode, evaluate expected_results to verify that they match results
+  assert:
+    that: result | combine(test_params['input'][test_input]['expected_result']) == result
+    fail_msg: "Exiting test. Expected results did not match actual results."
+  when: test_mode == true and test_type == 'validation'

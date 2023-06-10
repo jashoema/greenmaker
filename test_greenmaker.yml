@@ -1,0 +1,172 @@
+# ==TEST_GREENMAKER.YML===================================================================================
+# 
+# This playbook has been created for the purpose of automating execution of tests against multiple
+# scenarios, with the goal of simplifying integration into a CI/CD testing pipeline.
+# 
+# At a high level, this playbook executes the greenmaker role one or more times with a different set of
+# "extra-vars" included each time to represent a different test scenario. These extra-vars are managed in
+# unique files (one per test) located in the /tests/greenmaker/extra_vars/ folder.
+#
+# After completion of test execution, result logs for each scenario tested can be found in 
+# ~/.ansible/tmp/gm_<scenario_name>/
+#
+# For more details and usage instructions, see /tests/greenmaker/README.md (coming soon).
+#
+# ========================================================================================================
+# Usage Examples:
+# * Execute all available validation tests for a scenario:
+#     ansible-playbook test_greenmaker.yml -vvv -l "target_host" -i inventory/hosts -e '{ "target_scenarios":["scenario_name"] }'
+# * Execute all available full tests for a scenario against target_host:
+#     ansible-playbook test_greenmaker.yml -vvv -l "target_host" -i inventory/hosts -e '{ "target_scenarios":["scenario_name"], "use_full_test": true, "use_validation_test": false }'
+# * Execute a specific test found in /tests/greenmaker/extra_vars/ as defined by the extra_vars file \tests\greenmaker\extra_vars\iosxr\scenario_name\validation_tests\vt001_test_something.yml:
+#     ansible-playbook test_greenmaker.yml -vvv -l "target_host" -i inventory/dev_hosts -e '{ "target_tests":["vt001_test_something.yml"] }'
+# * Execute all available validation tests for all available scenarios against target_host:
+#     ansible-playbook test_greenmaker.yml -vvv -l "target_host" -i inventory/dev_hosts
+---
+
+- name: Execute tests for specific scenarios and/or specific tests using extra_vars files
+  hosts: "{{ ansible_play_hosts | lower }}"
+  connection: network_cli
+  gather_facts: false
+  vars:
+    use_validation_test: true
+    use_remediation_test: false
+    use_full_test: false
+    test_name: generic
+    target_scenarios: []
+    target_tests: []
+    extra_vars_path: "tests/greenmaker/extra_vars/"
+    test_results_path: "{{ lookup('env','HOME') }}/.ansible/tmp/"
+    test_results_name: "test_{{ test_name }}_{{ lookup('pipe','date +%Y%m%d%H%M%S') }}.log"
+    # banner_delay_sec sets amount of time in seconds that test_start_banner and test_end_banner will be displayed during each test
+    # Set this value to 0 for fastest possible test execution
+    banner_delay_sec: 10
+    # Result log data should persist
+    gm_log_cleanup: false
+    # For remote SCP copy of test result logs, use the following variables:
+    # gm_log_remote: true
+    # gm_log_remote_user: username
+    # gm_log_remote_pw: password
+    # gm_log_remote_host: "ip_address"
+    
+  tasks:
+
+  - name: Load necessary modules from Ansible Galaxy
+    local_action: command ansible-galaxy collection install -r requirements.yml
+    register: galaxy_output
+    ignore_errors: yes
+ 
+  - name: Display Ansible Galaxy response
+    debug:
+      msg: "{{ galaxy_output.stdout_lines }}"
+  
+  - name: Set test_results_name to persistent value when relative timestamp is used; initialize test counters
+    set_fact:
+      test_results_name: "{{ test_results_name }}"
+      test_pass_count: "0"
+      test_fail_count: "0"
+  
+  - name: Gather list of extra_vars files for importing test vars
+    find:
+      paths: 
+       - "{{ extra_vars_path }}/{{ ansible_network_os }}"
+       - "{{ extra_vars_path }}/all"
+      recurse: yes
+    register: extra_vars_files
+
+  - name: Build list of all files paths
+    set_fact:
+      extra_vars_files_matching: "{{ extra_vars_files['files'] | map(attribute='path') | list }}"
+
+  - name: Build list of file paths based upon target_scenarios
+    set_fact:
+      extra_vars_files_matching: "{{ extra_vars_files_matching | select('match', '^(.*)(' + target_scenarios | join('|') + ')/(.*)$' ) | list }}"
+    when: target_scenarios | length > 0
+  
+  - name: Exclude validation tests when use_validation_test is false
+    set_fact:
+      extra_vars_files_matching: "{{ extra_vars_files_matching | reject('match', '^(.*)validation_tests/(.*)$' ) | list }}"
+    when: use_validation_test == false
+
+  - name: Exclude remediation tests when use_remediation_test is false
+    set_fact:
+      extra_vars_files_matching: "{{ extra_vars_files_matching | reject('match', '^(.*)remediation_tests/(.*)$' ) | list }}"
+    when: use_remediation_test == false
+
+  - name: Exclude full tests when use_full_test is false
+    set_fact:
+      extra_vars_files_matching: "{{ extra_vars_files_matching | reject('match', '^(.*)full_tests/(.*)$' ) | list }}"
+    when: use_full_test == false
+
+  - name: Select target tests from extra_vars_files
+    set_fact:
+      extra_vars_files_matching: "{{ extra_vars_files_matching | select('match', '^(.*)(' + target_tests | join('|') + ').yml$' ) | list }}"
+    when: target_tests | length > 0
+
+  - name: Create test results folder structure
+    file:
+      path: "{{ test_results_path }}"
+      state: directory
+    check_mode: no
+
+  - name: Create test results log file
+    copy:
+      content: ""
+      dest: "{{ test_results_path }}/{{ test_results_name }}"
+      force: yes
+    check_mode: no
+
+  - block:
+  
+    - name: Invoke tests.yml tasks with each set of extra_vars for each individual test
+      include_tasks:
+        file: "tests/greenmaker/tests.yml"
+      loop: "{{ extra_vars_files_matching }}"
+      loop_control:
+        loop_var: extra_vars_file
+        index_var: test_number
+
+    always:
+  
+    - name: Generate test results report
+      set_fact:
+        test_results_report:
+          test_results: "{{ test_results | default('No target tests found that matched specified criteria. No tests were executed.') }}"
+          test_results_summary:
+            test_count: "{{ extra_vars_files_matching | count }}"
+            test_pass_count: "{{ test_pass_count }}"
+            test_fail_count: "{{ test_fail_count }}"
+            test_execution_count: "{{ test_pass_count | int + test_fail_count | int }}"
+            test_skip_count: "{{ extra_vars_files_matching | count - test_pass_count | int - test_fail_count | int }}"
+            
+
+    - name: Write test results to log file
+      lineinfile:
+        dest: "{{ test_results_path }}/{{ test_results_name }}"
+        line: "{{ test_results_report | to_nice_yaml }}"
+        insertafter: EOF
+      check_mode: no
+
+    - name: Generate test end banner for Fail
+      set_fact:
+        test_results_banner: | 
+          .
+          .
+          .
+          ==========================================================================
+          TEST RESULTS SUMMARY
+            
+          Test Count:      {{ test_results_report['test_results_summary']['test_count'] }}
+          Test Pass Count: {{ test_results_report['test_results_summary']['test_pass_count'] }}
+          Test Fail Count: {{ test_results_report['test_results_summary']['test_fail_count'] }}
+          Tests Executed:  {{ test_results_report['test_results_summary']['test_execution_count'] }}
+          Tests Skipped:   {{ test_results_report['test_results_summary']['test_skip_count'] }}
+          ==========================================================================
+          .
+          .
+          .
+
+    - name: Display results summary
+      pause:
+        prompt: "{{ test_results_banner }}"
+        seconds: "{{ banner_delay_sec }}"

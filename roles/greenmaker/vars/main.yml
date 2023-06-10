@@ -1,0 +1,18 @@
+---
+# List of supported values for variables (used in pre-checks)
+supported_ansible_network_os_list:
+  - ios
+  - iosxr
+  - nxos
+  - eos
+supported_test_type_list:
+  - validation
+  - remediation
+supported_gm_log_remote_proto_list:
+  - scp
+  - azure_blob_storage
+supported_gm_log_format_list:
+  - json
+supported_open_case_mode_list:
+  - active
+  - passive

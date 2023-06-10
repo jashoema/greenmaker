@@ -1,0 +1,122 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }} for {{ ansible_network_os }}"
+    verbosity: 1
+
+- name: Collect attach_commands and add to zip file for attachment to support case
+  block: 
+  
+  - name: Collect attach_commands for support case creation
+    iosxr_command:
+      commands: "{{ open_case_attach_commands }}"
+    vars:
+      ansible_command_timeout: "{{ open_case_timeout }}"
+    register: attach_commands_results
+
+  - name: Create attach_commands_output dictionary for output to attach_commands file
+    set_fact:
+      attach_commands_output: "{{ dict( open_case_attach_commands | zip(attach_commands_results['stdout']) ) }}"
+
+  - name: Save attach_commands results output to file 
+    copy:
+      content: |
+        {{ attach_commands_output | to_nice_yaml }}
+      dest: "{{ gm_log_path }}/{{ inventory_hostname }}_attach_commands.txt"
+    check_mode: no
+    ignore_errors: true
+    
+  - name: Create a .zip archive of attach_commands results and remove archived files
+    archive:
+      path: 
+        - "{{ gm_log_path }}/{{ inventory_hostname }}_attach_commands.txt"
+        - "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+      dest: "{{ gm_log_path }}/{{ inventory_hostname }}_attach.zip"
+      format: zip
+    check_mode: no
+
+  - name: Delete attach_commands txt file from local file system after adding to zip
+    file:
+      path: "{{ gm_log_path }}/{{ inventory_hostname }}_attach_commands.txt"
+      state: absent
+    check_mode: no
+
+  when: open_case_attach_commands | length > 0 and (test_mode == false or test_type == 'remediation')
+
+- name: active only mode block
+  block: 
+
+  - name: Create a ServiceGrid oauth token
+    uri:
+      url: https://cisco-test.solvedirect.com:443/ws/rest/oauth/token
+      method: POST
+      return_content: yes
+      headers:
+        Authorization: "Basic bXNmdDM2MGFuc2libGVfc3lzOkNpc2NvQDEyMzQ="
+        Content-Type: "application/x-www-form-urlencoded"
+      body:
+        grant_type: "client_credentials"
+      status_code: 200
+      body_format: form-urlencoded
+    register: oauth_token
+    check_mode: no
+
+  - name: Set token value
+    set_fact:
+      token_value:  "Bearer {{ oauth_token.json.access_token }}"
+    
+  - name: Create a ServiceGrid push call to create ticket
+    uri:
+      url: https://cisco-test.solvedirect.com:443/ws/rest/v1/push/call
+      method: POST
+      return_content: yes
+      headers:
+        Authorization: "{{ token_value }}"
+      body: "{{ lookup( 'template', 'templates/cisco_open_case.j2' ) }}"
+      body_format: json
+      status_code: 200
+    check_mode: no
+
+  - name: Pause execution to allow for creation of ticket
+    pause: 
+      seconds: "90"
+
+  - name: Create a ServiceGrid pull call to retrieve new ticket information
+    uri:
+      url: https://cisco-test.solvedirect.com:443/ws/rest/v1/pull/call
+      method: POST
+      return_content: yes
+      headers:
+        Authorization: "{{ token_value }}"
+      status_code: 200
+      body_format: json
+    register: ticket_callback
+    retries: 10
+    delay: 25  
+    until: ticket_callback.json.Calls.CustCallID == cisco_open_case['cust_call_id'] and 'CXD Update:' in ticket_callback.json.Calls.Remarks
+    check_mode: no
+    
+  - name: Print the Cisco case number
+    debug: 
+      msg: "New Cisco case number is {{ ticket_callback.json.Calls.SPCallID }}"
+      verbosity: 1
+
+  - name: Print the CXD info
+    debug: 
+      msg:  "{{ ticket_callback.json.ExtTableValues.Field81 }}"
+      verbosity: 1
+
+  - name: Make the file attachment available on CXD
+    uri:
+      url: "https://cxd-stg.cisco.com/home/{{ inventory_hostname }}.zip"
+      method: PUT
+      src: "{{ gm_log_path }}/{{ inventory_hostname }}.zip"
+      remote_src: true
+      user:  "{{ ticket_callback.json.Calls.SPCallID }}"
+      password: "{{ ticket_callback.json.ExtTableValues.Field81 }}"
+      force_basic_auth: yes
+      headers:
+        Content-Type: application/octet-stream
+      status_code: 201
+    check_mode: no
+
+  when: open_case_mode == "active" and "external" in open_case_destinations

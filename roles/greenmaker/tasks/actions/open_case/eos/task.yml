@@ -1,0 +1,45 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }} for {{ ansible_network_os }}"
+    verbosity: 1
+
+- name: Collect attach_commands and add to zip file for attachment to support case
+  block: 
+  
+  - name: Collect attach_commands for support case creation 
+    cli_command: 
+      command: "{{ item }}" 
+    vars: 
+      ansible_command_timeout: "{{ open_case_timeout }}" 
+    loop: "{{ open_case_attach_commands }}" 
+    ignore_errors: "{{ action['open_case']['args']['ignore_errors'] | default(true) }}" 
+    register: attach_commands_results
+
+  - name: Create attach_commands_output dictionary for output to attach_commands file
+    set_fact:
+      attach_commands_output: "{{ dict( open_case_attach_commands | zip(attach_commands_results.results | map(attribute='stdout') | list) ) }}"
+
+  - name: Save attach_commands results output to file 
+    copy:
+      content: |
+        {{ attach_commands_output | to_nice_yaml }}
+      dest: "{{ gm_log_path }}/{{ inventory_hostname }}_attach_commands.txt"
+    check_mode: no
+    ignore_errors: true
+    
+  - name: Create a .zip archive of attach_commands results and remove archived files
+    archive:
+      path: 
+        - "{{ gm_log_path }}/{{ inventory_hostname }}_attach_commands.txt"
+        - "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+      dest: "{{ gm_log_path }}/{{ inventory_hostname }}_attach.zip"
+      format: zip
+    check_mode: no
+
+  - name: Delete attach_commands txt file from local file system after adding to zip
+    file:
+      path: "{{ gm_log_path }}/{{ inventory_hostname }}_attach_commands.txt"
+      state: absent
+    check_mode: no
+
+  when: open_case_attach_commands | length > 0 and (test_mode == false or test_type == 'remediation')

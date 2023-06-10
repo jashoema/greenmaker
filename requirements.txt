@@ -1,0 +1,5 @@
+# Python packages required by Greenmaker
+ansible == 2.9.10
+jmespath
+textfsm
+jsonschema

@@ -1,0 +1,25 @@
+# ==GREENMAKER.YML===================================================================================
+# 
+# This playbook can be used by an Ansible workflow orchestrator (Ansible Tower or AWX) to trigger
+# the Greenmaker Role with appropriate extra-vars specified.
+#
+# Greenmaker is an Ansible role that consumes YAML-formatted action workflows to auto-remediate and 
+# auto-troubleshoot network failure events. For more details about Greenmaker, including
+# documentation of input vars, output vars, testing, and usage examples, please visit
+# roles/greenmaker/README.md
+# 
+# ===================================================================================================
+# Usage: 
+# ansible-playbook greenmaker.yml -i inventory/hosts -l <target_hostname> -e <extra-vars>
+---
+
+- name: Execute a workflow via the Greenmaker role
+  hosts: "{{ ansible_play_hosts | lower }}"
+  connection: network_cli
+  gather_facts: false
+
+  tasks:
+
+  - name: Execute Greenmaker role
+    include_role: 
+      name: greenmaker

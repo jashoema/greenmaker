@@ -1,0 +1,17 @@
+---
+- name: Initialize workflow_log_validation for capturing debug data for validation in a JSON format
+  set_fact:
+    workflow_log_validation: {}
+
+- name: Assign validations to actions list fact. List is used to support looping
+  set_fact:
+    actions:  "{{ validation }}"
+
+- name: Execute validation actions
+  include_tasks:
+    file: actions.yml
+  when: actions | length > 0
+
+- name: Set workflow_log_validation
+  set_fact:
+    workflow_log_validation: "{{ workflow_log_action_list | default([]) }}"

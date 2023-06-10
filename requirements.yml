@@ -1,0 +1,4 @@
+---
+collections:
+  # Install ansible.utils
+  - ansible.utils

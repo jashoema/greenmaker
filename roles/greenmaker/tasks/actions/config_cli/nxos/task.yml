@@ -1,0 +1,57 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }} for {{ ansible_network_os }}"
+    verbosity: 1
+
+- name: Execute config commands for NX-OS device
+  block:
+
+  - name: Execute config commands for NX-OS device
+    nxos_config:
+      lines: "{{ action['config_cli']['args']['commands'] }}"
+      match: none
+    vars:
+      ansible_command_timeout: "{{ action['config_cli']['args']['timeout'] | default(60) | int }}"
+    register: cli_config_result
+
+  - name: Append cli logs to same file
+    lineinfile:
+      dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+      line: | 
+          >> {{ action['config_cli']['args']['commands'][index] }}
+          {{ current_std_output }}
+      insertafter: EOF
+    check_mode: no
+    loop: "{{ cli_config_result['updates'] }}"
+    loop_control:
+        loop_var: current_std_output
+        index_var: index
+    delegate_to: localhost
+  
+  when: test_mode == false or test_type == 'remediation'
+
+- name: When in test mode and performing a validation test, generate debug output and log non-execution of commands to file
+  block:
+
+  - name: Test mode debug output
+    debug:
+      msg: |
+        The following commands were not executed due to use of Validation Test Mode:
+        {{ action['config_cli']['args']['commands'] }}
+      verbosity: 1
+
+  - name: Append cli logs to same file
+    lineinfile:
+      dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+      line: | 
+          >> {{ command }}
+          Execution skipped due to Validation Test Mode
+      insertafter: EOF
+    check_mode: no
+    loop: "{{ action['config_cli']['args']['commands'] }}"
+    loop_control:
+        loop_var: command
+        index_var: index
+    delegate_to: localhost
+
+  when: test_mode == true and test_type == 'validation'

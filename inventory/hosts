@@ -1,0 +1,39 @@
+---
+all:
+  hosts:
+    # TODO: Modify below devices with accurate information
+    devnet_xe_sandbox:
+      # Accessible via https://devnetsandbox.cisco.com/RM/Diagram/Index/38ded1f0-16ce-43f2-8df5-43a40ebf752e?diagramType=Topology
+      ansible_host: 
+      ansible_network_os: ios
+      ansible_user: developer
+      ansible_password: C1sco12345
+      ansible_port: 
+    devnet_xr_sandbox:
+      # Accessible via https://devnetsandbox.cisco.com/RM/Diagram/Index/e83cfd31-ade3-4e15-91d6-3118b867a0dd?diagramType=Topology
+      ansible_host: sandbox-iosxr-1.cisco.com
+      ansible_network_os: iosxr
+      ansible_user: admin
+      ansible_password: C1sco12345
+      ansible_port: 830
+    # TODO: Modify the below devices for use in tests
+    generic_nxos_device:
+      ansible_host: 11.225.250.184
+      ansible_network_os: nxos
+      ansible_user: admin
+      ansible_password: C1sco123
+    generic_ios_device:
+      ansible_host: 11.225.250.185
+      ansible_network_os: ios
+      ansible_user: admin
+      ansible_password: C1sco123
+    generic_iosxr_device:
+      ansible_host: 11.225.250.186
+      ansible_network_os: iosxr
+      ansible_user: admin
+      ansible_password: C1sco123
+    generic_eos_device:
+      ansible_host: 11.225.250.187
+      ansible_network_os: eos
+      ansible_user: admin
+      ansible_password: C1sco123

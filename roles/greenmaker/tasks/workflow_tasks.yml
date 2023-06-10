@@ -1,0 +1,104 @@
+---
+  - set_fact:
+      current_step: "{{ scenario['workflow'][step_index] }}"
+      step_index_tracker: "{{ step_index }}"
+
+  - name: Check current values of conditional vars for upcoming block
+    debug:
+      msg: |
+        resume_step: {{ resume_step | default("undefined") }}
+        exit: {{ exit | default(false) }}
+        ignore_resume_step: {{ ignore_resume_step | default("undefined")}}
+      verbosity: 1
+  
+  - block:
+
+    - debug:
+        msg: |
+          ========================== Step {{ step_index + 1 }} / Name: {{ current_step['step']['metadata']['name'] }} ==========================
+          {{ current_step['step']['metadata']['description'] }}
+          ===========================================================================================
+        verbosity: 1
+
+    - name: Log step description to CLI log file
+      lineinfile:
+        dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+        line: "! STEP {{ step_index + 1 }} [{{ current_step['step']['metadata']['name'] }}]:\n{{ current_step['step']['metadata']['description'] }}"
+        insertafter: EOF
+      check_mode: no
+      delegate_to: localhost
+
+    - name: Initialize workflow_log_step for capturing debug data for current_step in a JSON format
+      set_fact:
+        workflow_log_step:
+          metadata: "{{ current_step['step']['metadata'] }}"
+
+    - name: Set validation for current step
+      set_fact:
+        validation: "[ {{ current_step['step']['validation'] | default({}) }} ]"
+
+    - name: Initialize result for validation to true for scenarios where no validation is present
+      set_fact:
+        result:
+          return: true
+
+    - name: Execute validation for current step
+      include_tasks: 
+        file: validation.yml
+      when: (validation[0].keys() | list) | length > 0
+
+    - name: Set remediation_selection to 'on_true' or 'on_false'
+      set_fact:
+        remediation_selection: "{% if result['return'] %}on_true{% else %}on_false{% endif %}"
+
+    - name: Append workflow_log_validation to workflow_log_step
+      set_fact:
+        workflow_log_step: "{{ workflow_log_step | combine( { 'validation': workflow_log_validation[0] | default({}) } ) }}"
+      when: (validation[0].keys() | list) | length > 0
+    
+    - name: Re-render variables embedded in the current step in case they have changed
+      set_fact:
+        current_step: "{{ scenario['workflow'][step_index] }}"
+
+    - set_fact:
+        actions: "{{ current_step['step']['on_true'] | default([]) }}"
+
+    - name: on_true logic
+      block:
+
+      - name: Execute on_true actions when validation result is true or no validation steps exist
+        include_tasks:
+          file: actions.yml
+
+      - name: Append workflow_log_action_list to workflow_log_step
+        set_fact:
+          workflow_log_step: "{{ workflow_log_step | combine( { remediation_selection: workflow_log_action_list } ) }}"
+
+      when: ( actions | length > 0 and result['return'] ) or ( (validation[0].keys() | list) | length == 0 )
+
+    - set_fact:
+        actions: "{{ current_step['step']['on_false'] | default([]) }}"
+
+    - name: on_false logic
+      block: 
+
+      - name: Execute on_false actions when validation result is false
+        include_tasks:
+          file: actions.yml
+
+      - name: Append workflow_log_action_list to workflow_log_step
+        set_fact:
+          workflow_log_step: "{{ workflow_log_step | combine( { remediation_selection: workflow_log_action_list } ) }}"
+
+      when: actions | length > 0 and not result['return']
+
+    - name: Append workflow_log_step to workflow_log
+      set_fact:
+        workflow_log: "{{ workflow_log + [ { 'step': workflow_log_step } ] }}"
+
+    - name: Ignore resume_step after we execute it
+      set_fact:
+        ignore_resume_step: true
+      when: resume_step | default('') == current_step['step']['metadata']['name']
+      
+    when: ( ( resume_step | default('') == '' ) or ( resume_step | default('') == current_step['step']['metadata']['name'] ) or ignore_resume_step | default('false') == true ) and ( exit | default(false) == false )

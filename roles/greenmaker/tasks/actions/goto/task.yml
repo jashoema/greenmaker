@@ -1,0 +1,16 @@
+---
+- debug:
+    msg: "Executing {{ (action.keys() | list)[0] }}"
+    verbosity: 1
+
+- name: Log action to CLI log file
+  lineinfile:
+    dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+    line: "! ACTION: {{ (action.keys() | list)[0] }}\n"
+    insertafter: EOF
+  check_mode: no
+  delegate_to: localhost
+
+- name: "Set resume_step to the name of the next step that will be executed"
+  set_fact:
+    resume_step: "{{ action['goto']['args']['target'] }}"

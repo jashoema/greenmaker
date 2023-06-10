@@ -1,0 +1,89 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["test_eos_actions"] }'
+---
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "test_eos_actions"
+  description: |
+    This scenario demonstrates the validatation an arbitrary Arista EOS test command.
+  product_family:
+    - "eos"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+ 
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+workflow:
+  - step:
+      metadata:
+        name: "Validate an arbitrary Arista EOS command"
+        description: |
+          Execute diagnostic commands to verify an arbitrary Arista EOS command result from device.
+      validation:
+        eval_cli:
+          args:
+            commands:
+              - show running-config | i hostname
+            pattern: "hostname (.*)"
+            output:
+              - source: pattern_search[0]
+                target: hostname
+          settings: {}
+      on_true:
+        - echo: 
+            args:
+              message: |
+                Device results matched pattern. Issuing sample commands to test exec_cli, config_cli, and open_case actions.
+        - exec_cli:
+            args:
+              commands:
+                - show clock
+        - config_cli:
+            args:
+              commands:
+                - "hostname {{ hostname }}"
+        - open_case:
+            args:
+              title: "Testing open_case action"
+              destinations:
+                - external
+                - internal
+              description: |
+                Open Arista TAC case and attach supporting device tech output.
+                See {{ inventory_hostname }}_cli_<date_time>.txt attachment for troubleshooting steps that were performed.
+              severity: "3"
+              attach_commands:
+                - show tech-support summary
+      on_false:
+        - echo: 
+            args:
+              message: |
+                Failed to execute test action in scenario; eval_cli was unable to match the specified pattern.
+        - exit:
+            args:
+              reason: Failed to execute test actions in scenario; eval_cli was unable to match the specified pattern.  Exiting.
+
+
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of eval_cli action. Inject cli_eval_data as simulated output for "show failure" command.
+      extra_vars:
+        - alert_vars: {}
+      input:
+        eval_cli_capture_test_input:
+          cli_eval_data: |
+            hostname my_hostname_test
+          expected_result: 
+            return: true
+
+library: {}

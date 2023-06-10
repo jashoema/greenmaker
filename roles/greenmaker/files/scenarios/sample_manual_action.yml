@@ -1,0 +1,90 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_manual_action"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "sample manual_action scenario"
+  description: |
+    This scenario demonstrates the usage of the "manual_action" action. The scenario executes two tests: one to invoke the manual action and the second to continue the workflow at the predefined worflow resume step.
+    This scenario starts with the executing an "echo" action to print and provide a message about the subsequent manual_action action. 
+    The resumption step will perform a wait action in between some echo statements which will demonstrate the path through the workflow.
+  product_family:
+    - "All"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "manual_action Example"
+        description: |
+          Echo "Sample manual_action Action" to the Ansible execution logs
+      on_true:
+        - echo:
+            args:
+              message: |
+                Preparing to invoke manual_action action.
+        - manual_action:
+            args:
+              name: "Manual Action test scenario"
+              resume_step: "go_to_manual_step_example"
+        - echo: 
+            args:
+              message: |
+                This action should not appear in the workflow as manual_action is an exiting action.
+  - step:
+      metadata:
+        name: "go_to_manual_step_example"
+        description: "Example manual action step."
+      on_true:
+        - echo: 
+            args:
+              message: "Entering manual_action example about to wait."
+        - wait:
+            args:
+              duration: 1
+        - echo: 
+            args:
+              message: "Wait Completed."
+        - echo: 
+            args:
+              message: "preparing to exit this step and complete workflow."
+        - exit:
+            args:
+              reason: Manual action resume test completed
+
+    
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of manual_action action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+    - metadata:
+        name: manual_action_resume
+        description: | 
+          Test execution of manual_action resume step
+      extra_vars:
+        - alert_vars: {}
+        - resume_step: go_to_manual_step_example
+      input: {}
+
+library: {}
+

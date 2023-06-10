@@ -1,0 +1,1042 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$ref": "#/definitions/Scenario",
+    "definitions": {
+        "Scenario": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/ScenarioMetadata",
+                    "title": "metadata"
+                },
+                "triggers": {
+                    "description": "Provides details about the network events that are associated with this scenario. Triggers automate the generation of alerts that identify the presence of these triggers in the network, and specify relevant alert information such as the regex pattern needed for capturing a syslog event.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Trigger"
+                    },
+                    "title": "triggers"
+                },
+                "workflow": {
+                    "description": "The workflow is a programmatic representation of the steps and actions that should be taken to validate and remediate the network failure event(s) associated with this scenario.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Workflow"
+                    },
+                    "title": "workflow"
+                },
+                "tests": {
+                    "description": "Tests that simulate execution of the scenario by injecting sample data",
+                    "$ref": "#/definitions/Tests",
+                    "title": "tests"
+                },
+                "library": {
+                    "description": "Library of variables that can be referenced in the workflow or in tests",
+                    "$ref": "#/definitions/Library",
+                    "title": "library"
+                }
+            },
+            "required": [
+                "library",
+                "metadata",
+                "tests",
+                "triggers",
+                "workflow"
+            ]
+        },
+        "Library": {
+            "type": "object",
+            "description": "Library of objects that can be referenced elsewhere in the scenario.",
+            "additionalProperties": true,
+            "properties": {
+                "execution_vars": {
+                    "description": "Provides a list of static global variables that can be referenced by the workflow during execution.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ExecutionVar"
+                    }
+                },
+                "test_vars": {
+                    "description": "Provides a list of static global variables that can be referenced by a test.  Typically used for injecting sample device CLI output into a test.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/TestVar"
+                    }
+                }
+            },
+            "required": []
+        },
+        "ExecutionVar": {
+            "type": "object",
+            "required": []
+        },
+        "TestVar": {
+            "type": "object",
+            "required": []
+        },
+        "ScenarioMetadata": {
+            "type": "object",
+            "description": "Metadata that describes information about the event and steps for remediation.",
+            "additionalProperties": false,
+            "properties": {
+                "id": {
+                    "description": "User-defined Scenario ID.",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Scenario version/revision.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Full name of Scenario.",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Overview of Scenario function.",
+                    "type": "string"
+                },
+                "product_family": {
+                    "description": "List of supported hardware product families",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "severity": {
+                    "description": "Severity used for open-case remediation action.",
+                    "type": "string"
+                },
+                "device_roles": {
+                    "description": "List of device roles for which this scenario is applicable.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "categories": {
+                    "description": "List of categories that describe the nature of the failure conditions addressed by this scenario.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "troubleshooting_actions": {
+                    "description": "Step-by-step instructions describing what actions should be taken to diagnose and/or resolve the failure conditions addressed by this scenario.",
+                    "type": "string"
+                },
+                "related_defects": {
+                    "description": "List of software defects related to this scenario",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "date_modified": {
+                    "description": "Date when scenario was most recently modified.",
+                    "type": "string"
+                },
+                "alert_created": {
+                    "description": "Indicates whether or not alert has been enabled in production for this scenario",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "description",
+                "name",
+                "version"
+            ]
+        },
+        "Tests": {
+            "description": "Workflow action testing of device states and conditions. Test vars are defined and referenced in the `library` block of the Scenario.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "validation": {
+                    "description": "Scenario Validation tests",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ValidationTest"
+                    }
+                },
+                "remediation": {
+                    "description": "Scenario Remediation tests",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RemediationTest"
+                    }
+                }
+            },
+            "required": []
+        },
+        "RemediationTest": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/MetadataGeneric"
+                },
+                "extra_vars": {
+                    "$ref": "#/definitions/ExtraVar"
+                },
+                "input": {
+                    "$ref": "#/definitions/RemediationInput"
+                },
+                "output": {
+                    "$ref": "#/definitions/RemediationOutput"
+                }
+            },
+            "required": [
+                "extra_vars",
+                "input",
+                "metadata"
+            ]
+        },
+        "MetadataGeneric": {
+            "description": "Metadata that describes information about the event and steps for remediation.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name of workflow Step",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description of workflow Step",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "description"
+            ]
+        },
+        "ExtraVar": {
+            "description": "extra_vars to be passed to the test. Provides simulated device output, syslog data, or other operational parameters of a device to Greenmaker.",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/AlertVars"
+            },
+            "additionalProperties": false,
+            "required": []
+        },
+        "AlertVars": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": {
+                    "description": "User-defined variables for driving a Scenario's Test Mode (INPUT) or the generated and captured vars in the result log (OUTPUT)."
+                }
+            }
+        },
+        "AlertClearEvent": {
+            "type": "object"
+        },
+        "RemediationInput": {
+            "type": "object",
+            "additionalProperties": false,
+            "patternProperties": {
+                "^.*$": {
+                    "$ref": "#/definitions/RemediateVar"
+                }
+            },
+            "required": []
+        },
+        "RemediateVar": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "return": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "return"
+            ]
+        },
+        "RemediationMetadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name"
+            ]
+        },
+        "RemediationOutput": {
+            "type": "object",
+            "description": "The following variables are generated and captured in the result log prior to terminating execution of a scenario.",
+            "patternProperties": {
+                "^.*$": {
+                    "$ref": "#/definitions/AlertClearEvent"
+                }
+            },
+            "required": []
+        },
+        "ValidationTest": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/MetadataGeneric"
+                },
+                "extra_vars": {
+                    "$ref": "#/definitions/ExtraVar"
+                },
+                "input": {
+                    "$ref": "#/definitions/ValidationTestInput"
+                }
+            },
+            "required": [
+                "extra_vars",
+                "input"
+            ]
+        },
+        "ValidationTestInput": {
+            "description": "Input vars that will drive a Scenario's Test Mode",
+            "type": "object",
+            "additionalProperties": false,
+            "patternProperties": {
+                "^.*$": {
+                    "$ref": "#/definitions/ValidateVar"
+                }
+            },
+            "required": []
+        },
+        "ValidateVar": {
+            "description": "User-defined `library` var representing device output; to be consumed by the test.",
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "cli_eval_data": {
+                    "description": "Simulated output that would be generated by the command(s) specified in the `commands` argument for the eval_cli action.",
+                    "type": "string"
+                },
+                "eval_logs_data": {
+                    "description": "Simulated output that would be generated by 'show logging' for the eval_logs action",
+                    "type": "string"
+                },
+                "expected_result": {
+                    "$ref": "#/definitions/RemediateVar"
+                }
+            },
+            "required": [
+                "expected_result"
+            ]
+        },
+        "Trigger": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/MetadataGeneric"
+                },
+                "pattern": {
+                    "type": "string"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "integer"
+                },
+                "threshold_period": {
+                    "type": "integer"
+                },
+                "alert_clear_event": {
+                    "$ref": "#/definitions/AlertClearEvent"
+                }
+            },
+            "required": [
+                "alert_clear_event",
+                "metadata",
+                "pattern",
+                "severity",
+                "threshold",
+                "threshold_period"
+            ]
+        },
+        "Workflow": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "step": {
+                    "$ref": "#/definitions/Step"
+                }
+            },
+            "required": [
+                "step"
+            ]
+        },
+        "Step": {
+            "description": "A logic decision point where Workflow Actions (Validation and Remediation) are executed.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/MetadataGeneric"
+                },
+                "validation": {
+                    "$ref": "#/definitions/StepValidation"
+                },
+                "on_true": {
+                    "description": "Actions in the on_true section of a step will only be executed if the validation actions for the step rendered a true result.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/On"
+                    }
+                },
+                "on_false": {
+                    "description": "Actions in the on_false section of a step will only be executed if the validation actions for the step rendered a false result.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/On"
+                    }
+                }
+            },
+            "required": [
+                "metadata"
+            ]
+        },
+        "On": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "call": {
+                    "$ref": "#/definitions/Call"
+                },
+                "config_cli": {
+                    "$ref": "#/definitions/ConfigCLI"
+                },
+                "custom_action": {
+                    "$ref": "#/definitions/CustomAction"
+                },
+                "echo": {
+                    "$ref": "#/definitions/Echo"
+                },
+                "exec_cli": {
+                    "$ref": "#/definitions/ExecCLI"
+                },
+                "exit": {
+                    "$ref": "#/definitions/Exit"
+                },
+                "goto": {
+                    "$ref": "#/definitions/Goto"
+                },
+                "manual_action": {
+                    "$ref": "#/definitions/ManualAction"
+                },
+                "open_case": {
+                    "$ref": "#/definitions/OpenCase"
+                },
+                "wait": {
+                    "$ref": "#/definitions/Wait"
+                },
+                "fail": {
+                    "$ref": "#/definitions/Fail"
+                }
+            },
+            "required": []
+        },
+        "Call": {
+            "description": "Call a templatized list of actions by its name (reuse commonly used actions). Can be used for both Validation Actions and Remediation Actions.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/CallArgs"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "CallArgs": {
+            "description": "call Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "label": {
+                    "description": "Name of library workflow logic variable that should be invoked.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "label"
+            ]
+        },
+        "ExecCLI": {
+            "description": "Execute one or more CLI commands against target device in exec mode.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/ExecCLIArgs"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "ConfigCLI": {
+            "description": "Apply one or more persistent CLI configuration changes against the target device",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/ConfigCLIArgs"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "ConfigCLIArgs": {
+            "description": "config_cli Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "commands": {
+                    "description": "List of CLI commands that should be applied to the persistent configuration on the target device. J2 templating for variables is supported.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "timeout": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "commands"
+            ]
+        },
+        "ExecCLIArgs": {
+            "description": "exec_cli Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "commands": {
+                    "description": "List of CLI commands that should be applied to the target device. J2 templating for variables is supported.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "timeout": {
+                    "description": "Number of seconds that Greenmaker will wait for command execution on the device to finish.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "commands"
+            ]
+        },
+        "Echo": {
+            "description": "Outputs a string to the console. Typically used for debugging or logging purposes, and it is analagous to the Ansible `debug`` module.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "description": "echo Remediation Action's output arguments.",
+                    "$ref": "#/definitions/EchoArgs"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "EchoArgs": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "message": {
+                    "description": "String to be sent to the console.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message"
+            ]
+        },
+        "Exit": {
+            "description": "Halt workflow and exit",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/ExitArgs"
+                },
+                "custom_fields": {
+                    "$ref": "#/definitions/CustomFields"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "ExitArgs": {
+            "description": "exit Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "reason": {
+                    "description": "Supplies a descriptive reason for exiting the workflow that can be used for post-processing purposes and/or documentation purposes after workflow execution completes.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "reason"
+            ]
+        },
+        "Fail": {
+            "description": "Halt workflow and exit as a failure",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/FailArgs"
+                },
+                "custom_fields": {
+                    "$ref": "#/definitions/CustomFields"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "FailArgs": {
+            "description": "exit Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "reason": {
+                    "description": "Supplies a descriptive reason for failing the workflow that can be used for post-processing purposes and/or documentation purposes after workflow execution completes.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "reason"
+            ]
+        },
+        "CustomFields": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": []
+        },
+        "Goto": {
+            "description": "Jump forward to a specific step in the workflow",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/GotoArgs"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "GotoArgs": {
+            "description": "goto Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "target": {
+                    "description": "Name of the step that should be executed next. Must match the metadata name of the target step.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "target"
+            ]
+        },
+        "CustomAction": {
+            "description": "This remediation action allows for custom script logic external to Greenmaker to be executed.",
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/CustomActionArgs"
+                },
+                "output": {
+                    "description": "Output parameters",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/CustomActionOutputParms"
+                    }
+                }
+            }
+        },
+        "CustomActionArgs": {
+            "description": "custom_action Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "description": "Name of external script to execute. When type is set to `ansible_role`, name is used to refer to the name of the Ansible role that we want to execute from the `roles` directory of the Ansible runtime environment.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Describes the type of external script to execute. Currently, the only supported option is `ansible_role`, which allows for the execution of an Ansible role with the name specified in the `name` argument.",
+                    "type": "string"
+                }
+            },
+            "custom_fields": {
+                "$ref": "#/definitions/CustomFields"
+            },          
+            "required": [
+                "name",
+                "type"
+            ]
+        },
+        "CustomActionOutputParms": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "source": {
+                    "description": "Name of fact / variable generated by external script that we want to ingest into Greenmaker for future use.",
+                    "type": "string"
+                },
+                "target": {
+                    "description": "Name of the variable to which fact/variable content from source should be assigned.",
+                    "type": "string"
+                }
+            },
+            "required": []
+        },
+        "ManualAction": {
+            "description": "Pause workflow for manual intervention until check-in is received from external source",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/ManualActionArgs"
+                },
+                "custom_fields": {
+                    "$ref": "#/definitions/CustomFields"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "ManualActionArgs": {
+            "description": "manual_action Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "description": "A name that describes the action which will be taken by the manual_action.",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "resume_step": {
+                    "description": "The name of the step at which execution of the workflow should resume once the manual_action is completed.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "resume_step"
+            ]
+        },
+        "OpenCase": {
+            "description": "Use vendor support case API to open a support case, then capture specified diagnostic commands and attach to case.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/OpenCaseArgs"
+                },
+                "custom_fields": {
+                    "$ref": "#/definitions/CustomFields"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "OpenCaseArgs": {
+            "description": "open_case Remediation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "title": {
+                    "description": "Title of the vendor support case.",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description of the issue experienced by the target device.",
+                    "type": "string"
+                },
+                "severity": {
+                    "description": "Severity number to use when opening the case. Dependent upon vendor severity definitions.",
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "destinations": {
+                    "description": "Supported destinations are `internal` and `external`. Default value is `internal`.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "attach_commands": {
+                    "description": "CLI diagnostic commands for which output should be collected, zipped, and attached to the support case.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "description",
+                "severity",
+                "title"
+            ]
+        },
+        "Wait": {
+            "description": "Wait for a specified period of time",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "description": "wait Remediation Action's input arguments",
+                    "$ref": "#/definitions/WaitArgs"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "WaitArgs": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "duration": {
+                    "description": "Time in seconds for which to pause execution.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "duration"
+            ]
+        },
+        "StepValidation": {
+            "description": "Validate state data as a condition for performing one or more remediation actions.",
+            "type": "object",
+            "properties": {
+                "call": {
+                    "$ref": "#/definitions/Call"
+                },
+                "eval_cli": {
+                    "$ref": "#/definitions/EvalCLI"
+                },
+                "eval_var": {
+                    "$ref": "#/definitions/EvalVar"
+                },
+                "and": {
+                    "description": "Perform a logical `or` against a list of validation actions. All actions in the list will be executed against the target device, and their boolean results will be evaluated as a logical AND.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AndOr"
+                    }
+                },
+                "or": {
+                    "description": "Perform a logical `or` against a list of validation actions. All actions in the list will be executed against the target device, and their boolean results will be evaluated as a logical OR.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AndOr"
+                    }
+                }
+            },
+            "required": []
+        },
+        "AndOr": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "call": {
+                    "$ref": "#/definitions/Call"
+                },
+                "eval_cli": {
+                    "$ref": "#/definitions/EvalCLI"
+                },
+                "eval_var": {
+                    "$ref": "#/definitions/EvalVar"
+                },
+                "and": {
+                    "description": "Perform a logical `or` against a list of validation actions. All actions in the list will be executed against the target device, and their boolean results will be evaluated as a logical AND.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AndOr"
+                    }
+                },
+                "or": {
+                    "description": "Perform a logical `or` against a list of validation actions. All actions in the list will be executed against the target device, and their boolean results will be evaluated as a logical OR.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AndOr"
+                    }
+                }
+            },
+            "required": []
+        },
+        "EvalCLI": {
+            "description": "Evaluate the output of a CLI command on a target network device by looking for the presence of one or more regular expressions in the output.",
+            "type": "object",
+            "properties": {
+                "args": {
+                    "description": "eval_cli Validation Action's input arguments",
+                    "$ref": "#/definitions/EvalCLIArgs"
+                },
+                "settings": {
+                    "$ref": "#/definitions/EvalCLISettings"
+                },
+                "output": {
+                    "description": "Output parameters",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/OutputElement"
+                    }
+                }
+            },
+            "required": [
+                "args",
+                "settings"
+            ]
+        },
+        "EvalCLIArgs": {
+            "type": "object",
+            "properties": {
+                "commands": {
+                    "description": "One or more CLI commands that should be executed against the target device for the purpose of evaluating their output and (optionally) extracting data from their output. These are typically 'show' commands that do not affect the operation of the device.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pattern": {
+                    "description": "Regular expression that will be searched for in the output of the CLI command(s). If the regex is found in the command output, the validation renders a true result, and the 'on_true' actions for the step are executed. If the regex is not found, the validation renders a false result, and the 'on_false' actions for the step are executed. This argument uses Python regular expression syntax. Regex search will occur across the aggregate output of all specified commands from the 'commands' argument. In other words, if the output of any specified command contains is matched by this regex, a result of 'true' will be rendered. Additionally, parentheses can be used to extract one or more variables from the data matched by the regular expression. The extracted content can be assigned to variables using the 'target' output parameter.",
+                    "type": "string"
+                },
+                "timeout": {
+                    "description": "Timeout value in seconds for execution of CLI commands against the target device (default 60 seconds)",
+                    "type": "integer"
+                },
+                "ignore_errors": {
+                    "description": "Boolean to instruct whether any execution errors against the target device should be ignored (default false)",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "commands",
+                "pattern"
+            ]
+        },
+        "EvalCLISettings": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "test": {
+                    "$ref": "#/definitions/TestReference"
+                }
+            },
+            "required": []
+        },
+        "TestReference": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "input": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "string"
+                }
+            },
+            "required": []
+        },
+        "EvalVar": {
+            "description": "Evaluate the result of a command by looking for the presence of one or more regular expressions in its output. Can also extract one or more regexes from a command to populate variables for future use in the workflow.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "args": {
+                    "$ref": "#/definitions/EvalVarArgs"
+                },
+                "output": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/OutputElement"
+                    }
+                },
+                "settings": {
+                    "$ref": "#/definitions/EvalVarSettings"
+                }
+            },
+            "required": [
+                "args"
+            ]
+        },
+        "EvalVarArgs": {
+            "description": "eval_var Validation Action's input arguments",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "var_name": {
+                    "description": "The name of the variable to be evaluated. Dictionary keys and/or list elements can be used to specify a value contained within a data structure.",
+                    "type": "string"
+                },
+                "pattern": {
+                    "description": "Regular expression that will be searched for in the content of the variable.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "pattern",
+                "var_name"
+            ]
+        },
+        "OutputElement": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "source": {
+                    "description": "Source data extracted from regex pattern match that we wish to assign to a variable for future use in Greenmaker.",
+                    "type": "string"
+                },
+                "target": {
+                    "description": "Name of the variable to which extracted regex content should be assigned.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "source",
+                "target"
+            ]
+        },
+        "EvalVarSettings": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "test": {
+                    "$ref": "#/definitions/TestReference"
+                }
+            },
+            "required": [
+                "test"
+            ]
+        }
+    }
+}
+

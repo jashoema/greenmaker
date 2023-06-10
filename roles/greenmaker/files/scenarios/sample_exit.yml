@@ -1,0 +1,46 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_exit"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  name: "sample exit scenario"
+  version: "1.0.0"
+  description: |
+    This scenario demonstrates the usage of the "exit" action. This scenario starts with the executing an "echo" action to print to provide a message about the subsequent exit 
+    action.  The Exit action is then invoked and terminates the workflow, all subsequent steps will not be executed. 
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "Call Exit Example"
+        description: |
+          Echo "Sample Exit Action", to the Ansible execution logs
+      on_true:
+        - echo:
+            args:
+              message: |
+                Preparing to invoke exit action, the action will be invoke an exit action to to terminate the workflow any further steps will mot be executed.
+        - exit:
+            args:
+              reason: Exit action invoked to successfully to demonstrate the Exit action.            
+        - echo: 
+            args:
+              message: |
+                This action not execute and this message will not appear in the logs as the workflow has already been terminated.
+                
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of EXIT action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+
+library: {}

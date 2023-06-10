@@ -1,0 +1,88 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_eval_logs"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "sample_eval_logs"
+  description: |
+    This scenario demonstrates usage of the eval_logs action by extracting log buffer data from the target device within a specific time range,
+    filtering the output to only include lines with a specific string, and looking for a regex pattern within the resulting output.
+  related_defects: []
+  
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "eval_logs_capture"
+        description: |
+          Executes "show logging | include TenGigabitEthernet3/0/2" (or equivalent command for specific OS) and looks for pattern regex in the output within the
+          specified start_time and end_time range.  In the below example, we look for the presense of interface TenGigabitEthernet3/0/2 flapping (going down multiple times).
+      validation:
+        eval_logs:
+          args:
+            start_time: "2022-01-01 00:00:00"
+            end_time: "2022-01-01 01:00:00"
+            pattern: "LINK-3-UPDOWN.*TenGigabitEthernet3/0/2, changed state to down[\\s\\S]+LINK-3-UPDOWN.*TenGigabitEthernet3/0/2, changed state to down"
+            filter: "TenGigabitEthernet3/0/2"
+          settings:
+            test:
+              input: eval_logs_capture_test_input
+      on_true:
+        - echo: 
+            args:
+              message: |
+                eval_logs found the desired pattern.
+        - exit:
+            args:
+              reason: "Execution complete. eval_logs found the desired pattern."
+      on_false:
+        - echo:
+            args:
+              message: |
+                eval_logs did not find the desired pattern in the log output
+        - exit:
+            args:
+              reason: Unable to find desired pattern in the "show logging" command output.
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of eval_logs action. Inject eval_logs_data as simulated output for "show logging" command.
+      extra_vars:
+        - alert_vars: {}
+      input:
+        eval_logs_capture_test_input:
+          eval_logs_data: |
+            Jan  1 00:01:01.418: %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to down
+            Jan  1 00:01:01.421: %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to down
+            Jan  1 00:30:00.418: %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to up
+            Jan  1 00:30:00.421: %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to up
+            Jan  1 00:35:00.418: %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to down
+            Jan  1 00:35:00.418: %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to down
+            Jan  1 00:45:00.418: %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to up
+            Jan  1 00:45:00.421: %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to up
+            Jan  1 00:59:00.418: %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to down
+            Jan  1 00:59:00.418: %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to down
+            2022 Jan  1 00:01:01.418 %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to down
+            2022 Jan  1 00:01:01.421 %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to down
+            2022 Jan  1 00:30:00.418 %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to up
+            2022 Jan  1 00:30:00.421 %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to up
+            2022 Jan  1 00:35:00.418 %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to down
+            2022 Jan  1 00:35:00.418 %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to down
+            2022 Jan  1 00:45:00.418 %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to up
+            2022 Jan  1 00:45:00.421 %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to up
+            2022 Jan  1 00:59:00.418 %LINK-3-UPDOWN: Interface TenGigabitEthernet3/0/2, changed state to down
+            2022 Jan  1 00:59:00.418 %LINEPROTO-5-UPDOWN: Line protocol on Interface TenGigabitEthernet3/0/2, changed state to down
+
+          expected_result: 
+            return: true
+
+library: {}

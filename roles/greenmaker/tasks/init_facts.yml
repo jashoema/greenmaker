@@ -1,0 +1,82 @@
+---
+- name: Executing Git import when scenario_source == "git"
+  block:
+
+  - name: Check extra vars git credentials
+    no_log: true
+    set_fact:
+      git_ssh_url: "{{ git_scenario_url.split('//')[1] }}"
+
+  - name: Clone scenario from remote git repo
+    git:
+      repo: "https://{{ git_scenario_username }}:{{ git_scenario_password }}@{{ git_ssh_url }}"
+      dest: "{{ git_scenario_clone_path }}"
+      force: true
+      version: "{{ git_scenario_branch }}"
+    no_log: true
+    ignore_errors: true
+    register: git_status
+
+  - name: Fail if Git was unable to clone scenario repository
+    assert:
+      that:
+        - git_status.failed is false           
+      fail_msg: |
+        "Cloning of Git repository failed: {{ git_status | regex_replace('\/\/(.*)\@', '//*****@') }}"
+
+  - name: Assigning scenario path
+    set_fact:
+      scenario_path: "{{ git_scenario_path }}"
+
+  when: scenario_source == 'git'
+
+- name: Create a copy of scenario for j2 default addition
+  copy:
+    src: "{{ scenario_path }}/{{ scenario_name }}.yml"
+    dest: "{{ gm_log_path }}/tmp_{{ scenario_name }}.yml"
+
+- name: Add defaults to j2 variables
+  replace:
+    dest: "{{ gm_log_path }}/tmp_{{ scenario_name }}.yml"
+    regexp: '(}})'
+    replace: " | default('') }}"
+
+- name: Import specified scenario as a variable (workflows, triggers, metadata, etc)
+  include_vars:
+    file: "{{ gm_log_path }}/tmp_{{ scenario_name }}.yml"
+    name: scenario
+
+- name: Import variables from library
+  block:
+
+  - name: Assign execution_vars from library
+    set_fact:
+      '{{ (current_execution_var.keys() | list)[0] }}={{ current_execution_var[(current_execution_var.keys() | list)[0]] }}'
+    loop: "{{ scenario['library']['execution_vars'] }}"
+    loop_control:
+      loop_var: current_execution_var
+    when: "'execution_vars' in scenario['library']"
+
+  - name: Assign test_vars from library when in test mode
+    set_fact: '{{ (current_test_var.keys() | list)[0] }}={{ current_test_var[(current_test_var.keys() | list)[0]] }}'
+    loop: "{{ scenario['library']['test_vars'] }}"
+    loop_control:
+      loop_var: current_test_var
+    when: "'test_vars' in scenario['library'] and test_mode == true"  
+
+  when: "'library' in scenario"
+
+- name: Populate test-specific data when in test mode
+  block:
+
+  - name: Import specified test parameters when in test mode
+    set_fact: "test_params={{ scenario['tests'][test_type] | selectattr('metadata.name','equalto',test_name) | list | first }}"
+
+  - name: Assign test_vars from library when in test mode
+    set_fact: '{{ (current_extra_var.keys() | list)[0] }}={{ current_extra_var[(current_extra_var.keys() | list)[0]] }}'
+    loop: "{{ test_params['extra_vars'] | default([]) }}"
+    loop_control:
+      loop_var: current_extra_var
+    when: "'extra_vars' in test_params"
+
+  when: "test_mode == true"

@@ -1,0 +1,9 @@
+---
+- name: Log results in preparation for workflow exit due to failure
+  set_fact:
+    result_status: failed
+    result_exit_step: 
+      index: "{{ step_index_tracker | default('undefined') }}"
+      metadata: "{{ current_step['step']['metadata'] | default('undefined') }}"
+    result_exit_reason: "{{ failure_type | default('Unknown Failure') }}\n\n{{ ansible_failed_result['msg'] | default('Unable to capture failure message') }}"
+    result_vars: "{{ result_vars | default({}) | combine({ 'ansible_failed_result': ( ansible_failed_result['msg'] | default('Unable to capture failure message') ) }) }}"

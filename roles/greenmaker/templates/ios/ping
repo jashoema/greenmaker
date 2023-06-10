@@ -1,0 +1,8 @@
+Value SUCCESS_RATE (\d+)
+
+Start
+  ^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s*\\n
+  ^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s*\\n
+  ^.....\\n
+  ^\S+\s+\S+\s+\S+\s+${SUCCESS_RATE}\s+\S+\s+\S+
+  #^. -> Error

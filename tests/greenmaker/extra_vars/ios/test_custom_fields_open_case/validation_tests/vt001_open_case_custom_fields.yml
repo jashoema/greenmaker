@@ -1,0 +1,5 @@
+---
+scenario_name: "test_custom_fields_open_case"
+test_mode: true
+test_type: validation
+test_name: open_case_custom_fields

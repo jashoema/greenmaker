@@ -1,0 +1,99 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_exec_cli"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  name: "sample exec_cli scenario"
+  version: "1.0.0"
+  description: |
+    This scenario demonstrates the usage of the "exec_cli" action. This sample applies a realworld scenario of executing a command to return line card (module) state
+    parsing the result and power cycling the  the line card which is showing a hardware faulty.
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+   - step:
+      metadata:
+        name: "Sample exec_cli Scenario"
+        description: |
+          Demonstration of the exec_cli action 
+      validation:
+        eval_cli:
+          args:
+            commands:
+              - show module
+            pattern: "([\\S]+)[\\s]+[\\S]+ to [\\S]+[\\s]+[\\S]+[\\s]+[\\S]+[\\s]+[\\S]+[\\s]+hw-faulty"
+          output:
+            - source: pattern_search[0]
+              target: module_id
+          settings:
+            test:
+              input: show_module_failure
+      on_true:
+        - echo: 
+            args:
+              message: |
+                Possible line card failure present in module {{ module_id }}.
+                Attempting power cycle of line card to resolve.
+        - exec_cli:
+            args:
+              commands:
+                - "hw-module subslot {{ module_id }}/0 oir power-cycle force"
+        - exit:
+            args:
+              reason: "Power cycle of linecard done"
+      on_false:
+        - echo: 
+            args:
+              message: |
+                Line card failure not detected.  Exiting.
+        - exit:
+            args:
+              reason: "Exit Done"
+
+tests:
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of exec_cli action
+      input:
+        show_module_failure: 
+          cli_eval_data: "{{ show_module_failure }}"
+          expected_result:
+            return: true 
+      extra_vars:
+        - alert_vars: {}
+
+library:
+
+  test_vars:
+    - show_module_failure: |
+        Chassis Type: C9407R
+
+        Mod Ports Card Type                                   Model          Serial No.
+        ---+-----+--------------------------------------+--------------+--------------
+        1   48   48-Port UPOE 10/100/1000 (RJ-45)            C9400-LC-48U     JAE220208VH
+        2   48   48-Port UPOE 10/100/1000 (RJ-45)            C9400-LC-48U     JAE2152054B
+        3   10   Supervisor 1 XL Module                      C9400-SUP-1XL    JAE22030C4G
+        4   10   Supervisor 1 XL Module                      C9400-SUP-1XL    JAD22510NDJ
+        5   48   48-Port UPOE 10/100/1000 (RJ-45)            C9400-LC-48U     JAE213906J4
+        6   48   48-Port UPOE 10/100/1000 (RJ-45)            C9400-LC-48U     JAE213802U6
+
+        Mod MAC addresses                    Hw   Fw           Sw                 Status
+        ---+--------------------------------+----+------------+------------------+--------
+        1   00BE.7574.5780 to 00BE.7574.57AF 1.1  16.12.2r      16.12.01c          ok
+        2   00BE.7574.35CC to 00BE.7574.35FB 1.1  16.12.2r      16.12.01c          hw-faulty
+        3   005D.73B5.BFAC to 005D.73B5.BFB5 1.0  16.12.2r      16.12.01c          ok
+        4   005D.73B5.BFB6 to 005D.73B5.BFBF 2.0  16.12.2r      16.12.01c          ok
+        5   707D.B9CF.9F08 to 707D.B9CF.9F37 1.0  16.12.2r      16.12.01c          ok
+        6   707D.B9CF.611C to 707D.B9CF.614B 1.0  16.12.2r      16.12.01c          ok
+
+        Mod Redundancy Role     Operating Redundancy Mode Configured Redundancy Mode
+        ---+-------------------+-------------------------+---------------------------
+        3   Active              sso                       sso
+        4   Standby             sso                       sso
+
+        Chassis MAC address range: 44 addresses from 005d.73b5.bf80 to 005d.73b5.bfab

@@ -1,0 +1,18 @@
+---
+- name: Set checkpoint time
+  set_fact:
+    checkpoint_time: "{{ lookup('pipe','date +%Y-%m-%d%H:%M:%S') }}"
+
+- name: Convert checkpoint int a datetime format
+  set_fact:
+    checkpoint_time_dt: "{{ checkpoint_time[:10]+' '+checkpoint_time[10:] }}"
+
+- name: Diff time in sec
+  set_fact:
+    diff_time_sec: "{{ ((checkpoint_time_dt | to_datetime) - (result_start_time_dt | to_datetime)).total_seconds() | int }}" 
+      
+- name: Raise exception with fail module and set custom msg
+  fail:
+    msg: "Greenmaker execution timed out. Scenario execution lasted more than scenario_timeout value of {{ scenario_timeout }} minutes."
+
+  when: (diff_time_sec | int ) > (scenario_timeout * 60 | int)

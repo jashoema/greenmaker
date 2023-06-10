@@ -1,0 +1,167 @@
+---
+- debug:
+    msg: "Executing {{ action_name }} for {{ ansible_network_os }}"
+    verbosity: 1
+
+- name: Initialize vars
+  set_fact:
+    log_vars: {}
+    cli_logs: {}
+    logs_in_time_range: ""
+    pattern_search: ""
+    log_start_time: "{{ action['eval_logs']['args']['start_time'] | regex_search('[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}') | to_datetime('%m-%d %H:%M:%S') }}"
+    log_end_time: "{{ action['eval_logs']['args']['end_time'] | regex_search('[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}') | to_datetime('%m-%d %H:%M:%S') }}"
+    log_pattern: "{{ action['eval_logs']['args']['pattern'] | default('') }}"
+    log_filter: "{{ action['eval_logs']['args']['filter'] | default('.*') }}"
+    
+- name: Execute eval_logs data capture when test mode not enabled
+  block:
+
+    - name: Request logging buffer
+      cli_command:
+        command: "show logging | i {{ log_filter }}"
+      vars:
+        ansible_command_timeout: "{{ action['eval_logs']['args']['timeout'] | default(60) | int }}"
+      register: eval_logs_data_raw
+
+    - name: Normalize "show logging" output
+      set_fact:
+        eval_logs_data: "{{ eval_logs_data_raw['stdout'] }}"
+        
+  when: test_mode == false
+
+- name: Execute eval_logs data capture with simulated data for Validation Test Mode
+  block:
+
+    - set_fact:
+        test_input: "{{ action['eval_logs']['settings']['test']['input'] | default('') }}"
+
+    - set_fact:
+        eval_logs_data: "{{ test_params['input'][test_input]['eval_logs_data'] | default('') }}"
+
+  when: test_mode == true and test_type == 'validation'
+
+- name: Parse log data and execute regex pattern evaluation when not in Remediation Test Mode
+  block:
+
+    - name: Parse logs to extract timestamps
+      set_fact:
+        parsed_logs_list: "{{ eval_logs_data | regex_findall('\\*?([a-zA-Z]{3} [ 0-9]{2} [0-9\\:]+)\\.*[0-9]*: (.+)') }}"
+
+    - name: Capture all logs within time range of log_start_time and log_end_time
+      set_fact:
+        logs_in_time_range: "{{ logs_in_time_range | default('') + item[0] + ': ' + item[1] + '\n' }}"
+      when: "{{ ( item[0] | to_datetime('%b  %d %H:%M:%S') >= log_start_time | to_datetime ) and ( item[0] | to_datetime('%b  %d %H:%M:%S') <= log_end_time | to_datetime) }}"
+      loop: "{{ parsed_logs_list }}"
+
+    - name: Append log output to CLI log file
+      lineinfile:
+        dest: "{{ gm_log_path }}/{{ gm_log_cli_name }}"
+        line: |
+            >> System Log Output | start_time: {{ log_start_time }} | end_time: {{ log_end_time }} | filter: {{ log_filter }}
+            {{ logs_in_time_range | default('') }}
+        insertafter: EOF
+      check_mode: no
+      delegate_to: localhost
+    
+    - set_fact:
+        cli_logs: "{{ { 'show logging | i {{ log_filter }}': eval_logs_data } }}"
+
+    - name: Execute regex pattern evaluation when log_pattern is specified
+      set_fact:
+        pattern_search: "{{ logs_in_time_range | default('') | regex_findall('.*' + log_pattern + '.*', multiline=true) }}"
+      when: log_pattern | length > 0
+  
+  when: test_mode == false or (test_mode == true and test_type == 'validation')
+
+- name: Set output vars when log_pattern is found and not in Remediation Test Mode
+  block:
+
+  - name: Initialize log_vars and output_sources
+    set_fact:
+      output_sources: []
+
+  - name: Process output target vars
+    set_fact:         
+      "{{ current_action_output['target'] }}": "{{ hostvars[inventory_hostname] | json_query(current_action_output['source']) }}"
+      log_vars: "{{ log_vars | combine({current_action_output['target']: hostvars[inventory_hostname] | json_query(current_action_output['source']) }) }}"
+    loop: "{{ action['eval_logs']['output'] }}"
+    loop_control:
+      loop_var: current_action_output
+      index_var: index
+
+  when: "('output' in action['eval_logs'] and ( pattern_search | length > 0 or (logs_in_time_range | length > 0 and log_pattern == ''))) and not (test_mode == true and test_type == 'remediation')"
+
+- name: Capture validation result when not in Remediation Test Mode
+  block:
+
+  - name: Set result.return to false when log_pattern is not found
+    set_fact:
+      result:
+        return: false
+        data: "No results found"
+    when: logs_in_time_range == '' or (pattern_search == '' and log_pattern | length > 0) 
+
+  - name: When log_pattern is found, set result.return to true and capture regex pattern list as result.data
+    set_fact:
+      result:
+        return: true
+        data:
+          pattern_search: "{{ pattern_search }}"
+          logs_in_time_range: "{{ logs_in_time_range }}"
+          vars: "{{ log_vars | default({}) }}"
+      result_vars_list: "{{ result_vars_list + ((log_vars | default({})).keys() | list) }}"
+    when: pattern_search | length > 0 or (logs_in_time_range | length > 0 and log_pattern == '')
+
+  when: not (test_mode == true and test_type == 'remediation')
+
+- name: Override output vars and validation result when in Remediation Test Mode
+  block:
+
+  - name: Set test_input and test_output
+    set_fact:
+      test_input: "{{ action['eval_logs']['settings']['test']['input'] | default('') }}"
+      test_output: "{{ action['eval_logs']['settings']['test']['output'] | default('') }}"
+
+  - name: Process output target vars
+    set_fact:
+      "{{ current_action_output['target'] }}": "{{ test_params['output'][test_output][current_action_output['target']] | default('') }}"
+      log_vars: "{{ log_vars | combine({current_action_output['target']: test_params['output'][test_output][current_action_output['target']] | default('')}) }}"
+    loop: "{{ action['eval_logs']['output'] | default([]) }}"
+    loop_control:
+      loop_var: current_action_output
+
+  - name: Set result.return to value defined by Remediation Test parameters
+    set_fact:
+      result:
+        return: "{{ test_params['input'][test_input]['return'] | default(true) }}"
+        data:
+          pattern_search: ""
+          logs_in_time_range: ""
+          vars: "{{ log_vars | default({}) }}"
+      result_vars_list: "{{ result_vars_list + ((log_vars | default({})).keys() | list) }}"
+
+  when: test_mode == true and test_type == 'remediation'
+
+- name: Capture validation results in validation results list for use in logical _and/or_ evaluation
+  block:
+
+  - name: Capture updated validation results list for current boolean evaluation
+    set_fact:
+      current_validation_results: "{{ validation_results_cache[validation_results_cache_index] + [ result['return'] ] }}"
+
+  - name: Update validation_results_cache with latest validation results
+    set_fact:
+      validation_results_cache: "{{ validation_results_cache | combine( { validation_results_cache_index : current_validation_results } ) }}"
+
+  when: validation_results_cache | default({}) | length > 0
+
+- name: Capture action logs for JSON workflow logs
+  set_fact:
+    action_log: "{{ action_log | combine({ 'result': result['return'], 'cli_logs': cli_logs | default({}), 'logs_in_time_range': logs_in_time_range | default(''), 'output_vars': log_vars | default({}) }) }}"
+
+- name: When in Validation Test Mode, evaluate expected_results to verify that they match results
+  assert:
+    that: result | combine(test_params['input'][test_input]['expected_result']) == result
+    fail_msg: "Exiting test. Expected results did not match actual results."
+  when: test_mode == true and test_type == 'validation'

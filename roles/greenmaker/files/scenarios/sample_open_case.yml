@@ -1,0 +1,81 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_open_case"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "sample open_case scenario"
+  description: |
+    This scenario demonstrates the usage of the "open_case" action. This scenario starts with the executing an "echo" action to print a message about the subsequent open_case action 
+    that will be executed in the workflow. Once open_case has been executed, a further echo action is invoked to inform that the workflow is preparing to exit. Finally, the exit action is executed to complete the workflow.
+    By default, open_case runs in passive mode, which means it does not attempt to use vendor APIs to create a support case, and simply captures data in the result_logs and collects diagnostic data in a zip file to be consumed
+    by third party tools for the creation of support cases.  When open_case_mode is set to "active", supported vendor APIs (e.g. Cisco ServiceGrid) will be used to actively open a case and attach diagnostic data to the case.
+    The open_case action will be supplied with the following arguments:
+    - title: the title of the support case 
+    - destinations: determines if the support case is to be directed to an internal support system or to a vendor one such as serviceGrid or to both
+    - description: a description of the support case
+    - severity: the severity of the case
+    - attach_commands: a list of diagnostic commands to collect from the target device and attach to the support case
+    Additionally, we add an example of using custom_fields.  Here, a dictionary containing custom fields that can be keyed on by external tools to make decisions about how to process and respond to the results of this scenario.
+    In this case, we set "rma: true" to indicate that an RMA is needed, and external tools can use this information to include additional information in the ServiceGrid support case update related to the RMA request.
+    NOTE: Because this sample scenario is typically being executed in test_mode, the open_case action will not attempt to retrieve the specified attach_commands from a target device.
+  product_family:
+    - "All"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+ 
+
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "Open Case Example"
+        description: |
+          Execute open_case action for a sample support case.
+      on_true:
+        - echo:
+            args:
+              message: |
+                Preparing to invoke open_case action to create a support case.
+        - open_case:
+            args:
+              title: "Opening a support case to assist with an unresolved issues with device named {{ inventory_hostname }}"
+              destinations:
+                - external
+                - internal
+              description: |
+                Device {{ inventory_hostname }} requires support. RMA may be needed.
+              severity: "3"
+              attach_commands:
+                - "show tech-support"
+                - "show diagnostic status"
+            custom_fields:
+              rma: true
+        - echo: 
+            args:
+              message: "open_case is an exiting action.  Therefore, this message should not be printed."
+    
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of open_case action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+
+library: {}

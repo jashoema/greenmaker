@@ -1,0 +1,53 @@
+# yaml-language-server: $schema-greenmaker-scenario-schema.json>
+# Usage: ansible-playbook test_greenmaker.yml -l <target_host> -i <inventory_file> -e '{ "target_scenarios":["sample_fail"] }'
+---
+# "metadata" provides descriptive information about the scenario, such as its purpose and the actions that it takes
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "sample fail action scenario"
+  description: |
+    This scenario demonstrates the usage of the "fail" action. This scenario starts with the executing an "echo" action to print a message about the subsequent fail action 
+    that will be executed in the workflow. Once fail has been executed, 
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+
+# "triggers" describes the network event(s) or trigger conditions upon which the scenario workflow will be executed.
+# This sample scenario will be manually triggered, so we leave the triggers list empty.
+triggers: []
+
+
+# "workflow" provides a list of steps that will be executed by the auto-remediation workflow engine (e.g. Greenmaker role in Ansible)
+workflow:
+  - step:
+      metadata:
+        name: "Fail Action Example "
+        description: |
+          Execute Fail action test scenario 
+      on_true:
+        - echo:
+            args:
+              message: |
+                Preparing to invoke fail action.
+        - fail:
+            args:
+              reason: Workflow logic detected a failure situation which required the workflow to exit with as a execution failure 
+
+# "tests" describes available tests that can be executed for this scenario in Test Mode and any relevant simulated data for the test  
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of fail action
+      extra_vars:
+        - alert_vars: {}
+      input: {}
+
+library: {}
+

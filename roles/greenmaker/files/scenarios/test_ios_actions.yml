@@ -1,0 +1,89 @@
+# Usage: ansible-playbook test_greenmaker.yml -l <hostname> -i inventory/hosts -e '{ "target_scenarios":["test_ios_actions"] }'
+---
+metadata:
+  id: "100001"
+  version: "1.0.0"
+  name: "test_ios_actions"
+  description: |
+    This scenario demonstrates the validatation an arbitrary IOS test command.
+  product_family:
+    - "ios"
+  severity: "3"
+  device_roles:
+    - "TBD"
+  categories: []
+  related_defects: []
+  date_modified: ""
+  alert_created: false
+  troubleshooting_actions: ""
+
+triggers: []
+
+workflow:
+  - step:
+      metadata:
+        name: "Validate an arbitrary IOS test command"
+        description: |
+          Execute diagnostic commands to verify an arbitrary IOS command result from device.
+      validation:
+        eval_cli:
+          args:
+            commands:
+              - show running-config | i hostname
+            pattern: "hostname (.*)"
+            output:
+              - source: pattern_search[0]
+                target: hostname
+          settings:
+            test:
+              input: eval_cli_capture_test_input
+      on_true:
+        - echo: 
+            args:
+              message: |
+                Device results matched pattern. The hostname of the device is {{ hostname }}.
+        - exec_cli:
+            args:
+              commands:
+                - show clock
+        - config_cli:
+            args:
+              commands:
+                - "hostname {{ hostname }}"
+        - open_case:
+            args:
+              title: "Testing open_case action."
+              destinations:
+                - external
+                - internal
+              description: |
+                Open TAC case and attach supporting device tech output.
+                See {{ inventory_hostname }}_cli_<date_time>.txt attachment for troubleshooting steps that were performed.
+              severity: "3"
+              attach_commands:
+                - "show tech-support"
+      on_false:
+        - echo: 
+            args:
+              message: |
+                Failed to execute test actions in scenario; eval_cli was unable to match the specified pattern.
+        - exit:
+            args:
+              reason: Failed to execute test actions in scenario; eval_cli was unable to match the specified pattern.  Exiting.
+          
+tests: 
+  validation:
+    - metadata:
+        name: default_test
+        description: | 
+          Test execution of eval_cli action. Inject cli_eval_data as simulated output for "show failure" command.
+      extra_vars:
+        - alert_vars: {}
+      input:
+        eval_cli_capture_test_input:
+          cli_eval_data: |
+            hostname my_hostname_test
+          expected_result: 
+            return: true
+
+library: {}
